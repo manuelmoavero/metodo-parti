@@ -103,11 +103,12 @@ const CLASSIFICATORE = {
       ],
     },
     c_base: {
-      domanda: "La base è farinosa o amidacea?",
-      nota: "Pasta, pane, farina, riso, patate: nelle preparazioni fuse è il caso quasi universale.",
+      domanda: "Qual è la base?",
+      nota: "La base è ciò che tiene insieme la preparazione e ne fa il volume.",
       opzioni: [
-        { label: "Sì", add: { energia: 1 }, next: "c_ricco" },
-        { label: "No", hint: "raro: sformato di sole verdure, frittata", next: "c_ricco" },
+        { label: "Farinosa o amidacea", hint: "pasta, pane, farina, riso, patate: il caso più comune", add: { energia: 1 }, next: "c_ricco" },
+        { label: "Proteica", hint: "uova, farina di ceci, tofu: frittate, tortilla, farinata, sformati di legumi", add: { forza: 1 }, next: "c_ricco" },
+        { label: "Nessuna delle due", hint: "raro: sformato di sole verdure", next: "c_ricco" },
       ],
     },
     c_ricco: {
@@ -122,6 +123,7 @@ const CLASSIFICATORE = {
       domanda: "C'è un ripieno o condimento abbondante e visibile?",
       nota: "Conta solo se è una quota rilevante del pezzo, non una guarnizione.",
       opzioni: [
+        { label: "Patate o altro amido", hint: "frittata di patate, torta di riso", add: { energia: 1 }, next: "esito" },
         { label: "Verdure a foglia", hint: "misticanza, spinaci, scarola", add: { foglia: 1 }, next: "esito" },
         { label: "Verdure colorate", hint: "zucca, peperoni, melanzane, pomodoro abbondante", add: { colore: 1 }, next: "esito" },
         { label: "Legumi o tofu", add: { forza: 1 }, next: "esito" },
