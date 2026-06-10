@@ -44,8 +44,10 @@ const X             = icon(["M18 6 6 18M6 6l12 12"]);
 const Shield        = icon(["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"]);
 const BookOpen      = icon(["M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 0 3-3h7z"]);
 const Search        = icon(["m21 21-4.35-4.35","M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"]);
-const Info          = icon(["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z","M12 16v-4M12 8h.01"]);
+const Info          = icon(["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10 10z","M12 16v-4M12 8h.01"]);
 const ShoppingCart  = icon(["M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z","M3 6h18","M16 10a4 4 0 0 1-8 0"]);
+const Cloud         = icon(["M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"]);
+const CloudCheck    = icon(["M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z","M9 12l2 2 4-4"]);
 
 // ===== data/tasselli.js =====
 // data/tasselli.js
@@ -191,6 +193,219 @@ function mergeTasselli(tasselli, config) {
     ...t,
     ...(config.tasselli[t.id] || {}),
   }));
+}
+
+// ===== data/supabase.js =====
+// data/supabase.js
+// Client Supabase minimale (senza SDK: fetch nativo + REST API).
+// Espone: supabaseAuth (login/signup/logout/onAuthStateChange)
+//         e le funzioni di I/O per day_data e flag_data.
+//
+// Perché senza SDK: l'app non usa bundler; caricare @supabase/supabase-js
+// via CDN aggiunge ~250kb e richiede ES modules. Il REST API di Supabase
+// è stabile e sufficiente per le operazioni che usiamo.
+
+const SUPA_URL  = "https://ojhqieknxhsrxyvdowja.supabase.co";
+const SUPA_KEY  = "sb_publishable_W3axOEhDUPPdMZ1tKXtCug_l-35rcw4";
+
+// ── Token in memoria (non in localStorage per sicurezza) ──────────────────
+let _accessToken  = null;
+let _refreshToken = null;
+let _authListeners = [];
+
+function _notifyListeners(user) {
+  _authListeners.forEach(fn => fn(user));
+}
+
+// Restituisce gli header comuni per le chiamate autenticate.
+function _headers(extra = {}) {
+  const h = {
+    "Content-Type": "application/json",
+    "apikey": SUPA_KEY,
+    ...extra,
+  };
+  if (_accessToken) h["Authorization"] = `Bearer ${_accessToken}`;
+  return h;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+const supabaseAuth = {
+
+  // Registrazione nuova utente
+  async signUp(email, password) {
+    const res = await fetch(`${SUPA_URL}/auth/v1/signup`, {
+      method: "POST",
+      headers: _headers(),
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || data.error_description || "Errore registrazione");
+    if (data.access_token) _setSession(data);
+    return data;
+  },
+
+  // Login
+  async signIn(email, password) {
+    const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: _headers(),
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || data.error_description || "Credenziali non valide");
+    _setSession(data);
+    return data;
+  },
+
+  // Logout
+  async signOut() {
+    if (_accessToken) {
+      await fetch(`${SUPA_URL}/auth/v1/logout`, {
+        method: "POST",
+        headers: _headers(),
+      }).catch(() => {});
+    }
+    _clearSession();
+  },
+
+  // Recupera la sessione salvata (chiamato al mount di App)
+  async restoreSession() {
+    const stored = localStorage.getItem("parti_auth");
+    if (!stored) return null;
+    try {
+      const { accessToken, refreshToken } = JSON.parse(stored);
+      _accessToken  = accessToken;
+      _refreshToken = refreshToken;
+      // Verifica che il token sia ancora valido
+      const user = await supabaseAuth.getUser();
+      if (user) {
+        _notifyListeners(user);
+        return user;
+      }
+    } catch (e) {}
+    _clearSession();
+    return null;
+  },
+
+  // Ritorna l'utente corrente dal server
+  async getUser() {
+    if (!_accessToken) return null;
+    try {
+      const res = await fetch(`${SUPA_URL}/auth/v1/user`, {
+        headers: _headers(),
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // Registra un listener per i cambiamenti di sessione
+  onAuthStateChange(fn) {
+    _authListeners.push(fn);
+    return () => { _authListeners = _authListeners.filter(l => l !== fn); };
+  },
+
+  getCurrentUserId() {
+    return _accessToken ? _parseJwtUserId(_accessToken) : null;
+  },
+};
+
+// ── Helpers sessione ──────────────────────────────────────────────────────
+function _setSession(data) {
+  _accessToken  = data.access_token;
+  _refreshToken = data.refresh_token;
+  try {
+    localStorage.setItem("parti_auth", JSON.stringify({
+      accessToken:  _accessToken,
+      refreshToken: _refreshToken,
+    }));
+  } catch (e) {}
+  const user = data.user || { id: _parseJwtUserId(_accessToken), email: data.email };
+  _notifyListeners(user);
+}
+
+function _clearSession() {
+  _accessToken  = null;
+  _refreshToken = null;
+  try { localStorage.removeItem("parti_auth"); } catch (e) {}
+  _notifyListeners(null);
+}
+
+function _parseJwtUserId(token) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.sub;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ── I/O dati giornalieri ──────────────────────────────────────────────────
+
+// Carica tutti i day_data e flag_data dell'utente loggato.
+// Restituisce { daysData: {}, flagsData: {} } nel formato già usato da App.
+async function loadAllFromSupabase() {
+  const userId = supabaseAuth.getCurrentUserId();
+  if (!userId) return null;
+
+  const [dayRes, flagRes] = await Promise.all([
+    fetch(`${SUPA_URL}/rest/v1/day_data?user_id=eq.${userId}&select=date_key,data`, {
+      headers: _headers({ "Accept": "application/json" }),
+    }),
+    fetch(`${SUPA_URL}/rest/v1/flag_data?user_id=eq.${userId}&select=date_key,data`, {
+      headers: _headers({ "Accept": "application/json" }),
+    }),
+  ]);
+
+  if (!dayRes.ok || !flagRes.ok) return null;
+
+  const dayRows  = await dayRes.json();
+  const flagRows = await flagRes.json();
+
+  const daysData  = {};
+  const flagsData = {};
+  dayRows.forEach(r  => { daysData[r.date_key]  = r.data; });
+  flagRows.forEach(r => { flagsData[r.date_key] = r.data; });
+
+  return { daysData, flagsData };
+}
+
+// Salva (upsert) un singolo giorno su day_data.
+async function saveDayToSupabase(dateKey, data) {
+  const userId = supabaseAuth.getCurrentUserId();
+  if (!userId) return;
+  await fetch(`${SUPA_URL}/rest/v1/day_data`, {
+    method: "POST",
+    headers: _headers({
+      "Prefer": "resolution=merge-duplicates",
+    }),
+    body: JSON.stringify({ user_id: userId, date_key: dateKey, data, updated_at: new Date().toISOString() }),
+  }).catch(() => {});
+}
+
+// Salva (upsert) i flag di un singolo giorno su flag_data.
+async function saveFlagToSupabase(dateKey, data) {
+  const userId = supabaseAuth.getCurrentUserId();
+  if (!userId) return;
+  await fetch(`${SUPA_URL}/rest/v1/flag_data`, {
+    method: "POST",
+    headers: _headers({
+      "Prefer": "resolution=merge-duplicates",
+    }),
+    body: JSON.stringify({ user_id: userId, date_key: dateKey, data, updated_at: new Date().toISOString() }),
+  }).catch(() => {});
+}
+
+// Cancella il giorno corrente da day_data (usato da resetToday).
+async function deleteDayFromSupabase(dateKey) {
+  const userId = supabaseAuth.getCurrentUserId();
+  if (!userId) return;
+  await fetch(`${SUPA_URL}/rest/v1/day_data?user_id=eq.${userId}&date_key=eq.${dateKey}`, {
+    method: "DELETE",
+    headers: _headers(),
+  }).catch(() => {});
 }
 
 // ===== data/prontuario.js =====
@@ -2913,6 +3128,153 @@ function SpesaPanel({ onClose }) {
 }
 
 
+// ===== panels/LoginPanel.js =====
+// panels/LoginPanel.js
+// Slide panel per login e registrazione.
+// Usa supabaseAuth da data/supabase.js.
+// onSuccess(user) viene chiamato dopo login o signup riuscito.
+
+function LoginPanel({ onClose, onSuccess }) {
+  const [tab, setTab]         = useState("login");   // "login" | "signup"
+  const [email, setEmail]     = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError]     = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handle = async () => {
+    setError(null);
+    if (!email.trim() || !password.trim()) {
+      setError("Inserisci email e password.");
+      return;
+    }
+    setLoading(true);
+    try {
+      let data;
+      if (tab === "login") {
+        data = await supabaseAuth.signIn(email.trim(), password);
+      } else {
+        data = await supabaseAuth.signUp(email.trim(), password);
+      }
+      const user = data.user || await supabaseAuth.getUser();
+      onSuccess(user);
+      onClose();
+    } catch (e) {
+      setError(e.message || "Errore di connessione.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputStyle = {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "10px 12px",
+    border: "1px solid rgba(138, 90, 44, 0.25)",
+    borderRadius: "8px",
+    fontFamily: "var(--font-body)",
+    fontSize: "14px",
+    background: "rgba(255,255,255,0.7)",
+    color: "var(--ink)",
+    outline: "none",
+    marginBottom: "10px",
+  };
+
+  const tabStyle = (active) => ({
+    flex: 1,
+    padding: "7px 0",
+    border: "none",
+    borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
+    background: "transparent",
+    cursor: "pointer",
+    fontFamily: "var(--font-body)",
+    fontSize: "13px",
+    fontWeight: active ? 700 : 400,
+    color: active ? "var(--accent)" : "var(--ink-soft)",
+  });
+
+  return (
+    <SlidePanel
+      title="Sincronizzazione"
+      subtitle="Accedi per salvare i tuoi dati su più dispositivi."
+      onClose={onClose}
+    >
+      {/* Tab switcher */}
+      <div style={{ display: "flex", marginBottom: "20px", borderBottom: "1px solid rgba(138,90,44,0.12)" }}>
+        <button style={tabStyle(tab === "login")}  onClick={() => { setTab("login");  setError(null); }}>
+          Accedi
+        </button>
+        <button style={tabStyle(tab === "signup")} onClick={() => { setTab("signup"); setError(null); }}>
+          Registrati
+        </button>
+      </div>
+
+      {/* Form */}
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        style={inputStyle}
+        autoComplete="email"
+      />
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        onKeyDown={e => e.key === "Enter" && handle()}
+        style={{ ...inputStyle, marginBottom: "16px" }}
+        autoComplete={tab === "login" ? "current-password" : "new-password"}
+      />
+
+      {error && (
+        <div style={{
+          fontSize: "12px",
+          color: "#b03832",
+          marginBottom: "12px",
+          padding: "8px 10px",
+          background: "rgba(176,56,50,0.07)",
+          borderRadius: "6px",
+        }}>
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={handle}
+        disabled={loading}
+        style={{
+          width: "100%",
+          padding: "11px",
+          background: loading ? "rgba(138,90,44,0.3)" : "var(--accent)",
+          border: "none",
+          borderRadius: "8px",
+          color: "#fff",
+          fontFamily: "var(--font-body)",
+          fontSize: "14px",
+          fontWeight: 700,
+          cursor: loading ? "not-allowed" : "pointer",
+        }}
+      >
+        {loading ? "..." : tab === "login" ? "Accedi" : "Registrati"}
+      </button>
+
+      {tab === "signup" && (
+        <div style={{
+          marginTop: "14px",
+          fontSize: "11px",
+          color: "var(--ink-soft)",
+          fontStyle: "italic",
+          lineHeight: 1.5,
+          textAlign: "center",
+        }}>
+          I tuoi dati restano privati e visibili solo a te.
+        </div>
+      )}
+    </SlidePanel>
+  );
+}
+
 // ===== App.js =====
 // ============================================================
 // MAIN APP
@@ -2927,45 +3289,93 @@ function App() {
 
   // State
   const [currentDate, setCurrentDate] = useState(todayKey());
-  const [daysData, setDaysData] = useState({});
-  const [flagsData, setFlagsData] = useState({}); // { "2026-05-27": { vitc: true, omega3: false, calcio: true } }
-  const [loading, setLoading] = useState(true);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [guidaOpen, setGuidaOpen] = useState(false);
-  const [prontuarioOpen, setProntuarioOpen] = useState(false);
-  const [spesaOpen, setSpesaOpen] = useState(false);
+  const [daysData, setDaysData]       = useState({});
+  const [flagsData, setFlagsData]     = useState({});
+  const [loading, setLoading]         = useState(true);
+  const [user, setUser]               = useState(null);   // null = anonimo
+  const [loginOpen, setLoginOpen]     = useState(false);
+  const [historyOpen, setHistoryOpen]         = useState(false);
+  const [guidaOpen, setGuidaOpen]             = useState(false);
+  const [prontuarioOpen, setProntuarioOpen]   = useState(false);
+  const [spesaOpen, setSpesaOpen]             = useState(false);
 
-  // Load from storage on mount
+  // ── Mount: ripristina sessione, poi carica dati ──────────────────────────
   useEffect(() => {
-    try {
-      // One-shot cleanup: rimuove chiavi obsolete (parti_week e altro) preservando solo i dati attuali
-      const validPrefixes = ["parti_day:", "parti_flag:"];
-      Object.keys(localStorage)
-        .filter((k) => !validPrefixes.some((p) => k.startsWith(p)))
-        .forEach((k) => localStorage.removeItem(k));
+    (async () => {
+      try {
+        // Cleanup chiavi obsolete
+        const validPrefixes = ["parti_day:", "parti_flag:", "parti_auth"];
+        Object.keys(localStorage)
+          .filter((k) => !validPrefixes.some((p) => k.startsWith(p)))
+          .forEach((k) => localStorage.removeItem(k));
 
-      const data = {};
-      Object.keys(localStorage)
-        .filter((k) => k.startsWith("parti_day:"))
-        .forEach((key) => {
-          try { data[key.replace("parti_day:", "")] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
-        });
-      setDaysData(data);
+        // Prova a ripristinare la sessione Supabase
+        const restoredUser = await supabaseAuth.restoreSession();
 
-      const flagData = {};
-      Object.keys(localStorage)
-        .filter((k) => k.startsWith("parti_flag:"))
-        .forEach((key) => {
-          try { flagData[key.replace("parti_flag:", "")] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
-        });
-      setFlagsData(flagData);
-    } catch (e) {
-      console.error("Load error:", e);
-    }
-    setLoading(false);
+        if (restoredUser) {
+          setUser(restoredUser);
+          // Carica da Supabase e sovrascrivi localStorage (fonte di verità remota)
+          const remote = await loadAllFromSupabase();
+          if (remote) {
+            setDaysData(remote.daysData);
+            setFlagsData(remote.flagsData);
+            // Sincronizza localStorage con i dati remoti
+            Object.entries(remote.daysData).forEach(([k, v]) => {
+              try { localStorage.setItem(`parti_day:${k}`, JSON.stringify(v)); } catch (e) {}
+            });
+            Object.entries(remote.flagsData).forEach(([k, v]) => {
+              try { localStorage.setItem(`parti_flag:${k}`, JSON.stringify(v)); } catch (e) {}
+            });
+            return;
+          }
+        }
+
+        // Fallback: carica solo da localStorage (utente anonimo o Supabase non disponibile)
+        _loadFromLocalStorage();
+
+      } catch (e) {
+        console.error("Load error:", e);
+        _loadFromLocalStorage();
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    // Listener auth: aggiorna user state se la sessione cambia
+    const unsub = supabaseAuth.onAuthStateChange((u) => setUser(u));
+    return unsub;
   }, []);
 
-  // Persist a day's data
+  function _loadFromLocalStorage() {
+    const data = {};
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("parti_day:"))
+      .forEach((key) => {
+        try { data[key.replace("parti_day:", "")] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+      });
+    setDaysData(data);
+
+    const flagData = {};
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("parti_flag:"))
+      .forEach((key) => {
+        try { flagData[key.replace("parti_flag:", "")] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+      });
+    setFlagsData(flagData);
+  }
+
+  // ── Callback dopo login riuscito: carica dati remoti ────────────────────
+  const handleLoginSuccess = async (loggedUser) => {
+    setUser(loggedUser);
+    const remote = await loadAllFromSupabase();
+    if (remote) {
+      // Merge: remoto ha priorità, ma non cancella giorni locali assenti in remoto
+      setDaysData(prev => ({ ...prev, ...remote.daysData }));
+      setFlagsData(prev => ({ ...prev, ...remote.flagsData }));
+    }
+  };
+
+  // ── Persist a day's data ─────────────────────────────────────────────────
   const updateDay = (dateKey, tasselloId, newValue) => {
     const newDay = { ...(daysData[dateKey] || {}), [tasselloId]: newValue };
     setDaysData((prev) => ({ ...prev, [dateKey]: newDay }));
@@ -2974,10 +3384,11 @@ function App() {
     } catch (e) {
       console.error("Save error:", e);
     }
+    if (user) saveDayToSupabase(dateKey, newDay);
   };
 
   const toggleFlag = (dateKey, flagId) => {
-    const dayFlags = flagsData[dateKey] || {};
+    const dayFlags    = flagsData[dateKey] || {};
     const newDayFlags = { ...dayFlags, [flagId]: !dayFlags[flagId] };
     setFlagsData((prev) => ({ ...prev, [dateKey]: newDayFlags }));
     try {
@@ -2985,6 +3396,7 @@ function App() {
     } catch (e) {
       console.error("Save flag error:", e);
     }
+    if (user) saveFlagToSupabase(dateKey, newDayFlags);
   };
 
   const resetToday = () => {
@@ -2997,30 +3409,31 @@ function App() {
     try {
       localStorage.removeItem(`parti_day:${currentDate}`);
     } catch (e) {}
+    if (user) deleteDayFromSupabase(currentDate);
   };
 
-  // Add a prontuario item's tasselli to the current date atomically
+  // ── Add a prontuario item's tasselli to the current date atomically ──────
   const handleAddProntuarioItem = (item) => {
-    const { tasselli, flags } = parseItemValue(item.value);
+    const { tasselli: itemTasselli, flags } = parseItemValue(item.value);
 
-    // Build updated day atomically (avoids stale closure issues with multiple tasselli)
     const currentDay = daysData[currentDate] || {};
-    const newDay = { ...currentDay };
+    const newDay     = { ...currentDay };
     let granelloIncrement = 0;
-    let dayChanged = false;
+    let dayChanged        = false;
 
-    for (const [id, amount] of Object.entries(tasselli)) {
+    for (const [id, amount] of Object.entries(itemTasselli)) {
       if (id === "granello") {
         granelloIncrement += amount;
       } else {
         newDay[id] = Math.round(((newDay[id] || 0) + amount) * 10) / 10;
-        dayChanged = true;
+        dayChanged  = true;
       }
     }
 
     if (dayChanged) {
       setDaysData((prev) => ({ ...prev, [currentDate]: newDay }));
       try { localStorage.setItem(`parti_day:${currentDate}`, JSON.stringify(newDay)); } catch (e) {}
+      if (user) saveDayToSupabase(currentDate, newDay);
     }
 
     if (granelloIncrement > 0) {
@@ -3029,31 +3442,28 @@ function App() {
       updateDay(currentDate, "granello", newGranello);
     }
 
-    // Toggle flags (only if not already tapped today)
     const todayFlags = flagsData[currentDate] || {};
     for (const flagId of flags) {
       if (!todayFlags[flagId]) toggleFlag(currentDate, flagId);
     }
   };
 
-  // Derived state
-  const today = daysData[currentDate] || {};
-  const isToday = currentDate === todayKey();
+  // ── Derived state ────────────────────────────────────────────────────────
+  const today    = daysData[currentDate] || {};
+  const isToday  = currentDate === todayKey();
   const compensation = useMemo(
     () => (isToday ? computeCompensation(daysData, currentDate, userConfig) : {}),
     [daysData, currentDate, isToday]
   );
 
-  // Adjusted targets factor in compensation from previous days.
-  // compensation[id] is now an object { delta, reason, sourceDates, remainingDebt }
   const adjustedTargets = useMemo(() => {
     const out = {};
     tasselli.forEach((t) => {
       const adj = compensation[t.id];
       if (adj != null) {
         const newTarget = t.target + adj.delta;
-        const floor = t.softMin ?? 0;
-        out[t.id] = Math.max(floor, newTarget);
+        const floor     = t.softMin ?? 0;
+        out[t.id]       = Math.max(floor, newTarget);
       } else {
         out[t.id] = t.target;
       }
@@ -3066,21 +3476,20 @@ function App() {
     [flagsData, currentDate]
   );
 
-  // Streak warnings per ogni tassello: "high" | "med" | "low" | null
   const streakWarnings = useMemo(() => {
     const out = {};
     tasselli.forEach((t) => {
-      const consumed = today[t.id] || 0;
-      const target = adjustedTargets[t.id] ?? t.target;
+      const consumed   = today[t.id] || 0;
+      const target     = adjustedTargets[t.id] ?? t.target;
       const isBelowToday = consumed < target;
       if (!isBelowToday) { out[t.id] = null; return; }
 
       if (t.id === "forza") {
         const prev = daysBelow(daysData, t.id, t.target, 1, currentDate);
-        out[t.id] = prev < 0 ? null : prev >= 1 ? "high" : "med";
+        out[t.id]  = prev < 0 ? null : prev >= 1 ? "high" : "med";
       } else if (t.isMin || t.id === "frutto") {
         const prev = daysBelow(daysData, t.id, t.target, 2, currentDate);
-        out[t.id] = prev < 0 ? null : prev >= 2 ? "high" : prev === 1 ? "med" : "low";
+        out[t.id]  = prev < 0 ? null : prev >= 2 ? "high" : prev === 1 ? "med" : "low";
       } else {
         out[t.id] = null;
       }
@@ -3093,98 +3502,98 @@ function App() {
     d.setDate(d.getDate() + direction);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (d > today) return; // can't navigate to future
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
+    if (d > today) return;
+    const y   = d.getFullYear();
+    const m   = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
     setCurrentDate(`${y}-${m}-${day}`);
   };
 
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "var(--bg-page)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "var(--font-display)",
-          fontStyle: "italic",
-          color: "var(--ink-soft)",
-        }}
-      >
+      <div style={{
+        minHeight: "100vh",
+        background: "var(--bg-page)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "var(--font-display)",
+        fontStyle: "italic",
+        color: "var(--ink-soft)",
+      }}>
         ...
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "var(--bg-page)",
-        fontFamily: "var(--font-body)",
-        color: "var(--ink)",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "440px",
-          margin: "0 auto",
-          padding: "16px 14px 28px",
-        }}
-      >
+    <div style={{
+      minHeight: "100vh",
+      background: "var(--bg-page)",
+      fontFamily: "var(--font-body)",
+      color: "var(--ink)",
+    }}>
+      <div style={{ maxWidth: "440px", margin: "0 auto", padding: "16px 14px 28px" }}>
+
         {/* Header */}
-        <header
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "12px",
-            paddingTop: "4px",
-          }}
-        >
+        <header style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "12px",
+          paddingTop: "4px",
+        }}>
           <div>
-            <div
-              style={{
-                fontSize: "9px",
-                letterSpacing: "0.32em",
-                fontWeight: 700,
-                color: "var(--accent)",
-                textTransform: "uppercase",
-                marginBottom: "2px",
-              }}
-            >
+            <div style={{
+              fontSize: "9px",
+              letterSpacing: "0.32em",
+              fontWeight: 700,
+              color: "var(--accent)",
+              textTransform: "uppercase",
+              marginBottom: "2px",
+            }}>
               Il metodo delle parti
             </div>
-            <div
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "24px",
-                fontStyle: "italic",
-                color: "var(--ink-strong)",
-                lineHeight: 1,
-              }}
-            >
+            <div style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "24px",
+              fontStyle: "italic",
+              color: "var(--ink-strong)",
+              lineHeight: 1,
+            }}>
               {dayLabel(currentDate)}
             </div>
           </div>
           <div style={{ display: "flex", gap: "5px" }}>
+            {/* Pulsante sync/auth */}
             <button
-              onClick={() => setGuidaOpen(true)}
-              aria-label="Guida"
+              onClick={() => user ? supabaseAuth.signOut() : setLoginOpen(true)}
+              aria-label={user ? "Disconnetti" : "Sincronizza su più dispositivi"}
+              title={user ? `Connesso come ${user.email}` : "Accedi per sincronizzare"}
               style={{
                 width: "34px",
                 height: "34px",
                 borderRadius: "50%",
-                background: "rgba(255,255,255,0.7)",
-                border: "1px solid rgba(138, 90, 44, 0.2)",
+                background: user ? "rgba(90,122,60,0.12)" : "rgba(255,255,255,0.7)",
+                border: user ? "1px solid rgba(90,122,60,0.35)" : "1px solid rgba(138, 90, 44, 0.2)",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--accent)",
+                color: user ? "#5a7a3c" : "var(--accent)",
+              }}
+            >
+              {user ? <CloudCheck size={17} /> : <Cloud size={17} />}
+            </button>
+            <button
+              onClick={() => setGuidaOpen(true)}
+              aria-label="Guida"
+              style={{
+                width: "34px", height: "34px", borderRadius: "50%",
+                background: "rgba(255,255,255,0.7)",
+                border: "1px solid rgba(138, 90, 44, 0.2)",
+                cursor: "pointer", display: "flex", alignItems: "center",
+                justifyContent: "center", color: "var(--accent)",
               }}
             >
               <Info size={17} />
@@ -3193,16 +3602,11 @@ function App() {
               onClick={() => setSpesaOpen(true)}
               aria-label="Lista della spesa"
               style={{
-                width: "34px",
-                height: "34px",
-                borderRadius: "50%",
+                width: "34px", height: "34px", borderRadius: "50%",
                 background: "rgba(255,255,255,0.7)",
                 border: "1px solid rgba(138, 90, 44, 0.2)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--accent)",
+                cursor: "pointer", display: "flex", alignItems: "center",
+                justifyContent: "center", color: "var(--accent)",
               }}
             >
               <ShoppingCart size={17} />
@@ -3211,16 +3615,11 @@ function App() {
               onClick={() => setProntuarioOpen(true)}
               aria-label="Prontuario dei cibi"
               style={{
-                width: "34px",
-                height: "34px",
-                borderRadius: "50%",
+                width: "34px", height: "34px", borderRadius: "50%",
                 background: "rgba(255,255,255,0.7)",
                 border: "1px solid rgba(138, 90, 44, 0.2)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--accent)",
+                cursor: "pointer", display: "flex", alignItems: "center",
+                justifyContent: "center", color: "var(--accent)",
               }}
             >
               <BookOpen size={17} />
@@ -3229,16 +3628,11 @@ function App() {
               onClick={() => setHistoryOpen(true)}
               aria-label="Storico"
               style={{
-                width: "34px",
-                height: "34px",
-                borderRadius: "50%",
+                width: "34px", height: "34px", borderRadius: "50%",
                 background: "rgba(255,255,255,0.7)",
                 border: "1px solid rgba(138, 90, 44, 0.2)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--accent)",
+                cursor: "pointer", display: "flex", alignItems: "center",
+                justifyContent: "center", color: "var(--accent)",
               }}
             >
               <Calendar size={18} />
@@ -3247,30 +3641,19 @@ function App() {
         </header>
 
         {/* Day navigation */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "16px",
-            background: "rgba(255,255,255,0.45)",
-            borderRadius: "10px",
-            padding: "6px 10px",
-          }}
-        >
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginBottom: "16px", background: "rgba(255,255,255,0.45)",
+          borderRadius: "10px", padding: "6px 10px",
+        }}>
           <button
             onClick={() => navDay(-1)}
             aria-label="Giorno precedente"
             style={{
-              width: "28px",
-              height: "28px",
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-              color: "var(--ink-soft)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              width: "28px", height: "28px", border: "none",
+              background: "transparent", cursor: "pointer",
+              color: "var(--ink-soft)", display: "flex",
+              alignItems: "center", justifyContent: "center",
             }}
           >
             <ChevronLeft size={18} />
@@ -3280,13 +3663,9 @@ function App() {
               <button
                 onClick={() => setCurrentDate(todayKey())}
                 style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--accent)",
-                  cursor: "pointer",
-                  fontStyle: "italic",
-                  fontSize: "11px",
-                  textDecoration: "underline",
+                  background: "transparent", border: "none",
+                  color: "var(--accent)", cursor: "pointer",
+                  fontStyle: "italic", fontSize: "11px", textDecoration: "underline",
                 }}
               >
                 torna a oggi
@@ -3299,15 +3678,11 @@ function App() {
             disabled={isToday}
             aria-label="Giorno successivo"
             style={{
-              width: "28px",
-              height: "28px",
-              border: "none",
+              width: "28px", height: "28px", border: "none",
               background: "transparent",
               cursor: isToday ? "not-allowed" : "pointer",
               color: isToday ? "rgba(0,0,0,0.15)" : "var(--ink-soft)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >
             <ChevronRight size={18} />
@@ -3330,44 +3705,29 @@ function App() {
 
         {/* Compensation banner */}
         {isToday && Object.keys(compensation).length > 0 && (
-          <div
-            style={{
-              background: "rgba(176, 56, 50, 0.08)",
-              border: "1px solid rgba(176, 56, 50, 0.25)",
-              borderRadius: "10px",
-              padding: "10px 14px",
-              marginBottom: "14px",
-              fontSize: "12px",
-              color: "var(--ink)",
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "8px",
-            }}
-          >
+          <div style={{
+            background: "rgba(176, 56, 50, 0.08)",
+            border: "1px solid rgba(176, 56, 50, 0.25)",
+            borderRadius: "10px", padding: "10px 14px",
+            marginBottom: "14px", fontSize: "12px",
+            color: "var(--ink)", display: "flex",
+            alignItems: "flex-start", gap: "8px",
+          }}>
             <TrendingDown size={16} color="#b03832" style={{ marginTop: "1px", flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontStyle: "italic", fontWeight: 600, marginBottom: "2px" }}>
                 Target rivisti per il rientro
               </div>
               {Object.entries(compensation).map(([id, adj]) => {
-                const t = tasselli.find((x) => x.id === id);
+                const t         = tasselli.find((x) => x.id === id);
                 const newTarget = adjustedTargets[id];
                 return (
-                  <div
-                    key={id}
-                    style={{
-                      fontSize: "11px",
-                      color: "var(--ink)",
-                      marginTop: "2px",
-                    }}
-                  >
+                  <div key={id} style={{ fontSize: "11px", color: "var(--ink)", marginTop: "2px" }}>
                     <span style={{ fontWeight: 600 }}>{t.label}</span>: {newTarget}{" "}
-                    {t.unit} oggi ({adj.delta > 0 ? "+" : ""}
-                    {adj.delta} da {t.target})
+                    {t.unit} oggi ({adj.delta > 0 ? "+" : ""}{adj.delta} da {t.target})
                     {adj.remainingDebt && adj.remainingDebt > Math.abs(adj.delta) + 0.001 && (
                       <span style={{ color: "var(--ink-soft)", fontStyle: "italic" }}>
-                        {" "}
-                        — debito residuo {adj.remainingDebt.toFixed(1)}, prosegue domani
+                        {" "}debito residuo {adj.remainingDebt.toFixed(1)}, prosegue domani
                       </span>
                     )}
                   </div>
@@ -3380,7 +3740,7 @@ function App() {
         {/* Counters */}
         {tasselli.map((t) => {
           const inlineFlag = FLAGS.find((f) => f.tasselloId === t.id);
-          const flagChip = inlineFlag ? (
+          const flagChip   = inlineFlag ? (
             <FlagChip
               flag={inlineFlag}
               state={flagStates[inlineFlag.id] || { tappedToday: false, status: "ok", daysSince: 0 }}
@@ -3402,17 +3762,11 @@ function App() {
 
         {/* Granello (weekly) */}
         <div style={{ marginTop: "16px", marginBottom: "10px" }}>
-          <div
-            style={{
-              fontSize: "9px",
-              letterSpacing: "0.28em",
-              fontWeight: 700,
-              color: "var(--ink-soft)",
-              textTransform: "uppercase",
-              paddingLeft: "4px",
-              marginBottom: "8px",
-            }}
-          >
+          <div style={{
+            fontSize: "9px", letterSpacing: "0.28em", fontWeight: 700,
+            color: "var(--ink-soft)", textTransform: "uppercase",
+            paddingLeft: "4px", marginBottom: "8px",
+          }}>
             Settimanale
           </div>
           <GranelloCounter
@@ -3430,21 +3784,14 @@ function App() {
         <button
           onClick={resetToday}
           style={{
-            width: "100%",
-            marginTop: "20px",
-            padding: "10px",
+            width: "100%", marginTop: "20px", padding: "10px",
             background: "transparent",
             border: "1px dashed rgba(138, 90, 44, 0.3)",
-            borderRadius: "8px",
-            cursor: "pointer",
-            color: "var(--ink-soft)",
-            fontSize: "11px",
-            fontStyle: "italic",
-            fontFamily: "var(--font-body)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "6px",
+            borderRadius: "8px", cursor: "pointer",
+            color: "var(--ink-soft)", fontSize: "11px",
+            fontStyle: "italic", fontFamily: "var(--font-body)",
+            display: "flex", alignItems: "center",
+            justifyContent: "center", gap: "6px",
           }}
         >
           <RotateCcw size={12} />
@@ -3452,24 +3799,25 @@ function App() {
         </button>
 
         {/* Footer */}
-        <div
-          style={{
-            marginTop: "24px",
-            paddingTop: "16px",
-            borderTop: "1px dotted rgba(138, 90, 44, 0.25)",
-            fontSize: "10px",
-            color: "var(--ink-soft)",
-            textAlign: "center",
-            fontStyle: "italic",
-            lineHeight: 1.5,
-          }}
-        >
+        <div style={{
+          marginTop: "24px", paddingTop: "16px",
+          borderTop: "1px dotted rgba(138, 90, 44, 0.25)",
+          fontSize: "10px", color: "var(--ink-soft)",
+          textAlign: "center", fontStyle: "italic", lineHeight: 1.5,
+        }}>
           Una parte = un quarto di piatto.
           <br />
           Nessun calcolo di calorie. Solo riconoscimento e copertura.
         </div>
       </div>
 
+      {/* Panels */}
+      {loginOpen && (
+        <LoginPanel
+          onClose={() => setLoginOpen(false)}
+          onSuccess={handleLoginSuccess}
+        />
+      )}
       {historyOpen && (
         <HistoryPanel
           daysData={daysData}
@@ -3477,8 +3825,7 @@ function App() {
           onSelectDay={setCurrentDate}
         />
       )}
-
-      {guidaOpen && <GuidaPanel onClose={() => setGuidaOpen(false)} />}
+      {guidaOpen    && <GuidaPanel    onClose={() => setGuidaOpen(false)} />}
       {prontuarioOpen && (
         <ProntuarioPanel
           onClose={() => setProntuarioOpen(false)}

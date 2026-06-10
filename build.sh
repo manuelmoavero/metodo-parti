@@ -15,13 +15,11 @@ OUT="index.html"
 # Ordine di dipendenza (dal piu puro all'interfaccia):
 #   icons -> data -> logic -> ui -> components -> panels -> App
 # App.js resta per ultima.
-# Fase 1: tutto il JS sta ancora nel seme src/App.js. Le fasi 2-5 ritaglieranno
-# i pezzi in file dedicati: ogni nuovo file va AGGIUNTO QUI SOPRA App.js,
-# rispettando l'ordine. Scommentare le righe man mano che i file esistono.
 FILES=(
   icons.js
   data/tasselli.js
   data/config.js
+  data/supabase.js
   data/prontuario.js
   data/guida.js
   data/flags.js
@@ -41,6 +39,7 @@ FILES=(
   panels/GuidaPanel.js
   panels/ProntuarioPanel.js
   panels/SpesaPanel.js
+  panels/LoginPanel.js
   App.js
 )
 
