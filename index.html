@@ -359,10 +359,14 @@ async function loadAllFromSupabase() {
     }),
   ]);
 
-  if (!dayRes.ok || !flagRes.ok) return null;
+  if (!dayRes.ok || !flagRes.ok) {
+    console.error("[supa] load FALLITO", dayRes.status, flagRes.status);
+    return null;
+  }
 
   const dayRows  = await dayRes.json();
   const flagRows = await flagRes.json();
+  console.log("[supa] load OK:", dayRows.length, "giorni,", flagRows.length, "flag");
 
   const daysData  = {};
   const flagsData = {};
@@ -375,14 +379,24 @@ async function loadAllFromSupabase() {
 // Salva (upsert) un singolo giorno su day_data.
 async function saveDayToSupabase(dateKey, data) {
   const userId = supabaseAuth.getCurrentUserId();
-  if (!userId) return;
-  await fetch(`${SUPA_URL}/rest/v1/day_data`, {
-    method: "POST",
-    headers: _headers({
-      "Prefer": "resolution=merge-duplicates",
-    }),
-    body: JSON.stringify({ user_id: userId, date_key: dateKey, data, updated_at: new Date().toISOString() }),
-  }).catch(() => {});
+  if (!userId) { console.warn("[supa] saveDay: nessun userId"); return; }
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/day_data`, {
+      method: "POST",
+      headers: _headers({
+        "Prefer": "resolution=merge-duplicates",
+      }),
+      body: JSON.stringify({ user_id: userId, date_key: dateKey, data, updated_at: new Date().toISOString() }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("[supa] saveDay FALLITO", res.status, body);
+    } else {
+      console.log("[supa] saveDay OK", dateKey);
+    }
+  } catch (e) {
+    console.error("[supa] saveDay ERRORE rete", e);
+  }
 }
 
 // Salva (upsert) i flag di un singolo giorno su flag_data.
