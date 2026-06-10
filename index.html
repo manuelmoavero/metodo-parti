@@ -2388,7 +2388,7 @@ function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, grane
 // HISTORY PANEL (last 7 days as a small bar chart)
 // ============================================================
 
-function HistoryPanel({ daysData, onClose, onSelectDay }) {
+function HistoryPanel({ daysData, onClose, onSelectDay, onImport }) {
   const last14Days = [];
   for (let i = 13; i >= 0; i--) {
     last14Days.push(daysAgoKey(i));
@@ -2406,6 +2406,45 @@ function HistoryPanel({ daysData, onClose, onSelectDay }) {
       else if (!t.isMin && !t.isMax && v >= target) closed++;
     });
     return { closed, total: TASSELLI.length, empty: false };
+  };
+
+  const handleImport = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const raw = JSON.parse(ev.target.result);
+          const validKeys = Object.keys(raw).filter(k => k.startsWith("parti_day:") || k.startsWith("parti_flag:"));
+          if (validKeys.length === 0) {
+            alert("File non valido: nessun dato del Metodo delle Parti trovato.");
+            return;
+          }
+          const giorni = validKeys.filter(k => k.startsWith("parti_day:")).length;
+          if (!window.confirm("Importare " + giorni + " giorni di dati?\n\nAttenzione: i dati attuali verranno sostituiti.")) return;
+
+          // Costruisce daysData e flagsData dal JSON
+          const daysData  = {};
+          const flagsData = {};
+          validKeys.forEach(k => {
+            const parsed = JSON.parse(raw[k]);
+            if (k.startsWith("parti_day:"))  daysData[k.replace("parti_day:", "")]  = parsed;
+            if (k.startsWith("parti_flag:")) flagsData[k.replace("parti_flag:", "")] = parsed;
+          });
+
+          // Delega ad App.js che gestisce localStorage + Supabase
+          onImport(daysData, flagsData);
+        } catch (err) {
+          alert("Errore nel leggere il file: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   };
 
   return (
@@ -2549,7 +2588,7 @@ function HistoryPanel({ daysData, onClose, onSelectDay }) {
                 const data = {};
                 for (let i = 0; i < localStorage.length; i++) {
                   const key = localStorage.key(i);
-                  if (key && key.startsWith("parti_")) {
+                  if (key && (key.startsWith("parti_day:") || key.startsWith("parti_flag:"))) {
                     data[key] = localStorage.getItem(key);
                   }
                 }
@@ -2584,40 +2623,7 @@ function HistoryPanel({ daysData, onClose, onSelectDay }) {
               ⬇ Esporta dati
             </button>
             <button
-              onClick={() => {
-                const input = document.createElement("input");
-                input.type = "file";
-                input.accept = ".json";
-                input.onchange = (e) => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = (ev) => {
-                    try {
-                      const data = JSON.parse(ev.target.result);
-                      const validKeys = Object.keys(data).filter(k => k.startsWith("parti_"));
-                      if (validKeys.length === 0) {
-                        alert("File non valido: nessun dato del Metodo delle Parti trovato.");
-                        return;
-                      }
-                      const giorni = validKeys.filter(k => k.startsWith("parti_day:")).length;
-                      if (!window.confirm("Importare " + giorni + " giorni di dati?\n\nAttenzione: i dati attuali verranno sostituiti.")) return;
-                      const toDelete = [];
-                      for (let i = 0; i < localStorage.length; i++) {
-                        const key = localStorage.key(i);
-                        if (key && key.startsWith("parti_")) toDelete.push(key);
-                      }
-                      toDelete.forEach(k => localStorage.removeItem(k));
-                      validKeys.forEach(k => localStorage.setItem(k, data[k]));
-                      window.location.reload();
-                    } catch (err) {
-                      alert("Errore nel leggere il file: " + err.message);
-                    }
-                  };
-                  reader.readAsText(file);
-                };
-                input.click();
-              }}
+              onClick={handleImport}
               style={{
                 flex: 1,
                 padding: "10px",
@@ -2642,7 +2648,6 @@ function HistoryPanel({ daysData, onClose, onSelectDay }) {
     </div>
   );
 }
-
 
 // ===== panels/GuidaPanel.js =====
 // panels/GuidaPanel.js - framework teorico (pilastri, interazioni, sezioni)
@@ -3375,6 +3380,38 @@ function App() {
     }
   };
 
+  // ── Import da JSON: scrive su localStorage + Supabase se loggato ────────
+  const handleImport = async (importedDays, importedFlags) => {
+    // Pulisce localStorage dai dati parti_ esistenti
+    const toDelete = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("parti_day:") || key.startsWith("parti_flag:"))) toDelete.push(key);
+    }
+    toDelete.forEach(k => localStorage.removeItem(k));
+
+    // Scrive i nuovi dati su localStorage
+    Object.entries(importedDays).forEach(([k, v]) => {
+      try { localStorage.setItem(`parti_day:${k}`, JSON.stringify(v)); } catch (e) {}
+    });
+    Object.entries(importedFlags).forEach(([k, v]) => {
+      try { localStorage.setItem(`parti_flag:${k}`, JSON.stringify(v)); } catch (e) {}
+    });
+
+    // Aggiorna lo stato React
+    setDaysData(importedDays);
+    setFlagsData(importedFlags);
+
+    // Se loggato, carica tutto su Supabase
+    if (user) {
+      const uploads = [
+        ...Object.entries(importedDays).map(([k, v])  => saveDayToSupabase(k, v)),
+        ...Object.entries(importedFlags).map(([k, v]) => saveFlagToSupabase(k, v)),
+      ];
+      await Promise.all(uploads).catch(() => {});
+    }
+  };
+
   // ── Persist a day's data ─────────────────────────────────────────────────
   const updateDay = (dateKey, tasselloId, newValue) => {
     const newDay = { ...(daysData[dateKey] || {}), [tasselloId]: newValue };
@@ -3823,6 +3860,7 @@ function App() {
           daysData={daysData}
           onClose={() => setHistoryOpen(false)}
           onSelectDay={setCurrentDate}
+          onImport={handleImport}
         />
       )}
       {guidaOpen    && <GuidaPanel    onClose={() => setGuidaOpen(false)} />}

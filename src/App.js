@@ -97,6 +97,38 @@ function App() {
     }
   };
 
+  // ── Import da JSON: scrive su localStorage + Supabase se loggato ────────
+  const handleImport = async (importedDays, importedFlags) => {
+    // Pulisce localStorage dai dati parti_ esistenti
+    const toDelete = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("parti_day:") || key.startsWith("parti_flag:"))) toDelete.push(key);
+    }
+    toDelete.forEach(k => localStorage.removeItem(k));
+
+    // Scrive i nuovi dati su localStorage
+    Object.entries(importedDays).forEach(([k, v]) => {
+      try { localStorage.setItem(`parti_day:${k}`, JSON.stringify(v)); } catch (e) {}
+    });
+    Object.entries(importedFlags).forEach(([k, v]) => {
+      try { localStorage.setItem(`parti_flag:${k}`, JSON.stringify(v)); } catch (e) {}
+    });
+
+    // Aggiorna lo stato React
+    setDaysData(importedDays);
+    setFlagsData(importedFlags);
+
+    // Se loggato, carica tutto su Supabase
+    if (user) {
+      const uploads = [
+        ...Object.entries(importedDays).map(([k, v])  => saveDayToSupabase(k, v)),
+        ...Object.entries(importedFlags).map(([k, v]) => saveFlagToSupabase(k, v)),
+      ];
+      await Promise.all(uploads).catch(() => {});
+    }
+  };
+
   // ── Persist a day's data ─────────────────────────────────────────────────
   const updateDay = (dateKey, tasselloId, newValue) => {
     const newDay = { ...(daysData[dateKey] || {}), [tasselloId]: newValue };
@@ -545,6 +577,7 @@ function App() {
           daysData={daysData}
           onClose={() => setHistoryOpen(false)}
           onSelectDay={setCurrentDate}
+          onImport={handleImport}
         />
       )}
       {guidaOpen    && <GuidaPanel    onClose={() => setGuidaOpen(false)} />}
