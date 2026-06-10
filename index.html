@@ -3403,7 +3403,7 @@ function App() {
     setFlagsData(importedFlags);
 
     // Se loggato, carica tutto su Supabase
-    if (user) {
+    if (supabaseAuth.getCurrentUserId()) {
       const uploads = [
         ...Object.entries(importedDays).map(([k, v])  => saveDayToSupabase(k, v)),
         ...Object.entries(importedFlags).map(([k, v]) => saveFlagToSupabase(k, v)),
@@ -3421,7 +3421,7 @@ function App() {
     } catch (e) {
       console.error("Save error:", e);
     }
-    if (user) saveDayToSupabase(dateKey, newDay);
+    if (supabaseAuth.getCurrentUserId()) saveDayToSupabase(dateKey, newDay);
   };
 
   const toggleFlag = (dateKey, flagId) => {
@@ -3433,7 +3433,7 @@ function App() {
     } catch (e) {
       console.error("Save flag error:", e);
     }
-    if (user) saveFlagToSupabase(dateKey, newDayFlags);
+    if (supabaseAuth.getCurrentUserId()) saveFlagToSupabase(dateKey, newDayFlags);
   };
 
   const resetToday = () => {
@@ -3446,7 +3446,7 @@ function App() {
     try {
       localStorage.removeItem(`parti_day:${currentDate}`);
     } catch (e) {}
-    if (user) deleteDayFromSupabase(currentDate);
+    if (supabaseAuth.getCurrentUserId()) deleteDayFromSupabase(currentDate);
   };
 
   // ── Add a prontuario item's tasselli to the current date atomically ──────
@@ -3470,7 +3470,7 @@ function App() {
     if (dayChanged) {
       setDaysData((prev) => ({ ...prev, [currentDate]: newDay }));
       try { localStorage.setItem(`parti_day:${currentDate}`, JSON.stringify(newDay)); } catch (e) {}
-      if (user) saveDayToSupabase(currentDate, newDay);
+      if (supabaseAuth.getCurrentUserId()) saveDayToSupabase(currentDate, newDay);
     }
 
     if (granelloIncrement > 0) {
