@@ -1,0 +1,58 @@
+// data/flags.js
+// Tracker opzionali di micronutrienti (FLAGS).
+// Sole costanti: nessun React, nessuna dipendenza.
+
+const FLAGS = [
+  {
+    id: "vitc",
+    label: "Vit. C",
+    emoji: "🍋",
+    fullLabel: "Vitamina C",
+    tasselloId: null,
+    warnAfterDays: 3,
+    alertAfterDays: 5,
+    maxStreakDays: null,
+    dose: "1 fonte ricca nello stesso pasto dei legumi: mezzo peperone crudo, 1 kiwi, 1 arancia, o una manciata di fragole. Il timing conta: vicino al ferro vegetale moltiplica l'assorbimento.",
+    sources: "Peperone crudo (rosso o giallo): metà peperone = 150mg+ vitamina C, il top assoluto. Kiwi: 1 frutto = 70-90mg. Agrumi (arancia, limone, pompelmo): 1 frutto medio. Fragole: manciata. Broccoli crudi o poco cotti. Prezzemolo fresco abbondante. La cottura distrugge fino al 50% della vit. C: meglio crudi o appena scottati. Ideale: aggiungi limone sulla zuppa di lenticchie, peperone crudo a fianco dei ceci, kiwi a fine pasto con legumi.",
+    why: "Moltiplica per 3-4 l'assorbimento del ferro vegetale (legumi, cereali integrali, verdure). La sinergia funziona solo se la vitamina C è nello stesso pasto del ferro, non in un pasto diverso. Con ferritina bassa-normale come la tua, questo è uno dei gesti nutrizionali più efficaci: un limone sulla zuppa di lenticchie vale più di un integratore di ferro.",
+  },
+  {
+    id: "omega3",
+    label: "Omega-3",
+    emoji: "🌿",
+    fullLabel: "Omega-3 vegetali",
+    tasselloId: null,
+    warnAfterDays: 4,
+    alertAfterDays: 6,
+    maxStreakDays: 7,
+    dose: "5ml di olio di microalghe (1 cucchiaino) — oppure 1 cucchiaio di semi di lino macinati",
+    sources: "olio di microalghe nu3 o simile: 5ml/die (579mg EPA + 1158mg DHA). In alternativa: semi di lino macinati 1 cucchiaio/die, semi di chia 1 cucchiaio, noci 4-5. Le alghe danno EPA/DHA diretti (forme attive), semi e noci danno ALA (precursore, conversione limitata).",
+    why: "EPA e DHA da microalghe abbassano i trigliceridi (documentato clinicamente). Prendilo con un pasto che contiene altri grassi per massimizzare l'assorbimento. L'olio va conservato in frigo e consumato entro 6 settimane dall'apertura.",
+  },
+  {
+    id: "calcio",
+    label: "Calcio",
+    emoji: "🦴",
+    fullLabel: "Calcio vegetale",
+    tasselloId: null,
+    warnAfterDays: 4,
+    alertAfterDays: 7,
+    maxStreakDays: null,
+    dose: "1 fonte fortifcata ogni giorno: 1 bicchiere di latte di soia addizionato con calcio (≈300mg) oppure 500ml-1L di acqua calcica (Ferrarelle o Contrex, Ca ≥250mg/L). Rucola, mandorle e tahin completano ma non bastano da soli.",
+    sources: "Latte di soia fortificato: 200ml = ~240mg Ca (controlla etichetta: Ca ≥120mg/100ml, es. Alpro, Joya). Vale anche 0,5 Forza se proteico. Acqua calcica: Ferrarelle (365mg/L), Contrex (468mg/L), San Pellegrino (163mg/L — discreta). Con 1L di Ferrarelle prendi 365mg Ca senza mangiare nulla di speciale. Rucola: 100g = ~160mg Ca. Mandorle: 30g = ~70mg Ca. Tahin: 1 cucchiaio colmo = ~130mg Ca. Broccoli o cavolo nero cotti abbondanti: 200g+. Nota: spinaci e biete NON contano — gli ossalati bloccano l'assorbimento fino all'80-90%.",
+    why: "Senza latticini il calcio va cercato consapevolmente: le fonti vegetali singole valgono 70-160mg l'una contro un fabbisogno di ~1000mg/die. Una fonte certificata al giorno (latte di soia o acqua calcica) è l'ancora che garantisce la base; rucola, mandorle e tahin completano il resto. Lo studio EPIC-Oxford mostra +30% di rischio fratture in vegani con apporto sotto 525mg/die.",
+  },
+  {
+    id: "b12",
+    label: "B12",
+    emoji: "💊",
+    fullLabel: "Vitamina B12 settimanale",
+    tasselloId: null,
+    warnAfterDays: 8,
+    alertAfterDays: 14,
+    maxStreakDays: null,
+    dose: "1 compressa da 1000 µg di cianocobalamina 2 volte a settimana (es. lunedì e giovedì), oppure 1 compressa da 2000-2500 µg una volta a settimana. A stomaco vuoto se possibile.",
+    sources: "Cianocobalamina in compresse: la forma più studiata e affidabile. Strategia bisettimanale (2 × 1000 µg): sfrutta due volte il canale del fattore intrinseco, arrivando a ~23 µg assorbiti/settimana; copertura più uniforme. Strategia settimanale (1 × 2000-2500 µg): più semplice da ricordare, assorbimento simile grazie alla diffusione passiva a dosi elevate. Entrambe le strategie coprono il fabbisogno di 2,4 µg/die. Non usare dosi da 1000 µg una sola volta a settimana: assorbi solo ~1,5 µg/die, sotto il fabbisogno.",
+    why: "La B12 non esiste in nessun alimento vegetale non fortificato in forma attiva. È l'unico integratore non sostituibile per chi mangia vegano. La cianocobalamina è la forma più studiata e affidabile. Entrambe le strategie (2 × 1000µg o 1 × 2000-2500µg a settimana) sono coerenti con le linee guida per vegani: scegli quella che riesci a seguire con più costanza.",
+  },
+];

@@ -1,0 +1,3484 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fbf5e9">
+<title>Il metodo delle parti</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+// ===== icons.js =====
+// icons.js
+// Livello 1. Preambolo React condiviso da tutto il bundle concatenato e
+// factory + definizioni delle icone SVG. Essendo il primo file concatenato,
+// il binding di React (h + hook) qui e' visibile a tutti i file successivi.
+// Le icone usano solo h; gli hook (useState/useEffect/useMemo) servono ai
+// livelli components/panels/App, che vengono concatenati dopo.
+
+const { createElement: h, useState, useEffect, useMemo } = React;
+
+const icon = (paths) =>
+  ({ size=24, color="currentColor", style={}, strokeWidth=2, ...rest }) =>
+    h("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none",
+      stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round", style, ...rest },
+      ...paths.map((d, i) => h("path", { key: i, d })));
+
+const Plus          = icon(["M12 5v14M5 12h14"]);
+const Minus         = icon(["M5 12h14"]);
+const RotateCcw     = icon(["M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8","M3 3v5h5"]);
+const Calendar      = icon(["M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"]);
+const TrendingDown  = icon(["M22 17l-8.5-8.5-5 5L2 7","M16 17h6v-6"]);
+const Check         = icon(["M20 6 9 17l-5-5"]);
+const AlertCircle   = icon(["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z","M12 8v4M12 16h.01"]);
+const ChevronRight  = icon(["m9 18 6-6-6-6"]);
+const ChevronLeft   = icon(["m15 18-6-6 6-6"]);
+const X             = icon(["M18 6 6 18M6 6l12 12"]);
+const Shield        = icon(["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"]);
+const BookOpen      = icon(["M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 0 3-3h7z"]);
+const Search        = icon(["m21 21-4.35-4.35","M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"]);
+const Info          = icon(["M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z","M12 16v-4M12 8h.01"]);
+const ShoppingCart  = icon(["M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z","M3 6h18","M16 10a4 4 0 0 1-8 0"]);
+
+// ===== data/tasselli.js =====
+// data/tasselli.js
+// I 7 tasselli del Metodo (TASSELLI) e il Granello settimanale (GRANELLO).
+// Sole costanti: nessun React, nessuna dipendenza.
+
+// The 7 tasselli of "Il Metodo delle Parti"
+const TASSELLI = [
+  {
+    id: "energia",
+    label: "Energia",
+    sub: "cereali, pane, patate",
+    unit: "parti",
+    target: 3,
+    isMax: true,        // target is a ceiling, not a floor
+    step: 0.5,
+    color: "#8b6332",
+    bg: "#f4e8d6",
+    help: "Tutto a base di cereali o farina: pasta, riso, pane, pizza, focaccia, prodotti da forno, fiocchi di avena, cereali per colazione. È un tetto (max 3), non un obiettivo da riempire. Attenzione ai compositi: pizza e cornetti portano anche Oro per i grassi. Preferisci sempre gli integrali, hanno più magnesio, zinco e vitamine B.",
+  },
+  {
+    id: "forza",
+    label: "Forza",
+    sub: "legumi, tofu, uova, pesce",
+    unit: "parti",
+    target: 2,
+    softMin: 1.5,
+    softMax: 2.5,
+    step: 0.5,
+    color: "#b03832",
+    bg: "#f4dad8",
+    help: "Proteine dense: legumi, tofu, tempeh, seitan, uova, pesce. Almeno 1 delle 2 porzioni deve essere densa: yogurt e latte di soia contano solo 0,5 e da soli non bastano. Con i legumi aggiungi vitamina C nello stesso pasto (limone, peperone): l’assorbimento del ferro si moltiplica per 3-4.",
+  },
+  {
+    id: "foglia",
+    label: "Foglia",
+    sub: "verdure a foglia verde",
+    unit: "parti",
+    target: 1.5,
+    isMin: true,
+    step: 0.5,
+    color: "#5a7a3c",
+    bg: "#dde6cf",
+    help: "Verdure leggere e acquose, verdi o bianche: insalata, spinaci, cetriolo, finocchio, taccole. Servono a fare volume, sforo libero: più ne mangi meglio è. Le verdure colorate vanno nel Colore, non qui. Spinaci e biete valgono come Foglia ma non per il calcio, gli ossalati lo bloccano.",
+  },
+  {
+    id: "colore",
+    label: "Colore",
+    sub: "verdure colorate",
+    unit: "parti",
+    target: 1.5,
+    isMin: true,
+    step: 0.5,
+    color: "#c97a4d",
+    bg: "#f4ddcd",
+    help: "Verdure con pigmenti vivaci e micronutrienti specifici: carote, zucca, peperoni, pomodoro, zucchine, melanzane, broccoli. Sforo libero come la Foglia. Condiscile sempre con un filo d’olio: carotenoidi e licopene sono liposolubili, senza grassi non si assorbono.",
+  },
+  {
+    id: "frutto",
+    label: "Frutto",
+    sub: "frutta fresca",
+    unit: "unità",
+    target: 2,
+    softMax: 4,
+    step: 0.5,
+    color: "#a8456e",
+    bg: "#f0d4dd",
+    help: "Frutta fresca intera: la fibra tampona gli zuccheri. Sempre intera, mai in succo, è la fibra a fare la differenza. L’avocado non è qui, ha troppi grassi e va nell’Oro. Tieniti intorno a 2, oltre 4 frutti dolci diventa troppo zucchero.",
+  },
+  {
+    id: "oro",
+    label: "Oro",
+    sub: "calorie accessorie",
+    unit: "cucchiai",
+    target: 2,
+    softMin: 1,
+    softMax: 5,
+    step: 0.5,
+    color: "#b88824",
+    bg: "#f4e4c0",
+    help: "Calorie accessorie: olio, formaggi, alcol, dolci, grassi di cottura. Non è da azzerare ma da misurare: serve un minimo (1) per assorbire le vitamine liposolubili, ma è facile accumularne senza accorgersene. Diverso dal Granello, che porta grassi funzionali: le mandorle sono Granello, l’olio è Oro.",
+  },
+];
+
+// Granello has weekly target, handled separately
+const GRANELLO = {
+  id: "granello",
+  label: "Granello",
+  sub: "noci, mandorle, semi",
+  unit: "cucchiai/sett",
+  target: 7,
+  softMax: 14,  // tetto morbido: sopra 14 cucchiai/7gg l'apporto calorico da grassi diventa eccessivo
+  step: 1,
+  color: "#6b8a8a",
+  bg: "#d8e2e2",
+  help: "Grassi funzionali e micronutrienti: noci, semi, mandorle. Si conta sugli ultimi 7 giorni in continuo, non a settimana fissa. Non intuitivi: cioccolato fondente >85%, tahin e burro di frutta secca 100% contano qui, non nell’Oro. Due trappole: i semi di lino vanno macinati e la chia ammollata, altrimenti passano interi senza rilasciare gli omega-3.",
+};
+
+// ===== data/prontuario.js =====
+// data/prontuario.js
+// Database di classificazione alimenti (PRONTUARIO).
+// Sole costanti: nessun React, nessuna dipendenza.
+
+// Each row: name, portion, classification (slot + value or composite),
+// optional note. Grouped by section for browsing.
+
+const PRONTUARIO = [
+  {
+    section: "Energia — carboidrati strutturali",
+    items: [
+      { name: "Pasta, riso, farro, orzo, couscous", portion: "80g a crudo / 200g cotto", value: "1 Energia", slots: ["energia"], note: "Preferire sempre integrali: il raffinamento elimina fino all'80% di magnesio, zinco e vitamine B. Con trigliceridi alti i raffinati sono la prima cosa da ottimizzare." },
+      { name: "Pane comune, panino, piadina", portion: "1 fetta / 1 unità", value: "1 Energia", slots: ["energia"], note: "Piadina conta 1,5 se spessa o unta. Preferire pane integrale o di segale." },
+      { name: "Fette biscottate o gallette", portion: "3-4 fette / 3-4 gallette", value: "1 Energia", slots: ["energia"], note: "Indice glicemico alto se raffinate. Abbina sempre a Forza o Granello per rallentare l'assorbimento." },
+      { name: "Patate, patate dolci (batate)", portion: "150g (2 piccole)", value: "1 Energia", slots: ["energia"], note: "Sono tuberi amidacei, NON verdure. Non contano come Colore anche se colorate." },
+      { name: "Mais dolce in scatola", portion: "100g (1 tazzina)", value: "1 Energia", slots: ["energia"], note: "Cereale amidaceo nonostante il colore giallo. Non è un Colore." },
+      { name: "Castagne lesse o arrostite", portion: "8-10 unità", value: "1 Energia", slots: ["energia"], note: "Amido puro, non grassi. Non sono Granello nonostante la consistenza." },
+      { name: "Fiocchi d'avena", portion: "40g", value: "1 Energia", slots: ["energia"], note: "Scelta ottimale per la colazione: il beta-glucano rallenta l'assorbimento degli zuccheri e aiuta a ridurre i trigliceridi. Preferisci i fiocchi interi o tradizionali: i fiocchi istantanei sono più lavorati e hanno indice glicemico più alto. Abbina latte vegetale, frutta e Granello." },
+      { name: "Cereali da colazione integrali", portion: "40-50g", value: "1 Energia", slots: ["energia"], note: "Solo quelli integrali senza zuccheri aggiunti (muesli base, crusca, avena soffiata). I cereali zuccherati, glassati o al cioccolato aggiungono 0,5 Oro per i grassi/zuccheri nascosti. Regola rapida: lo zucchero non deve essere al primo o secondo posto negli ingredienti." },
+      { name: "Riso soffiato, corn flakes (senza zucchero)", portion: "30g", value: "1 Energia", slots: ["energia"], note: "Alto indice glicemico anche nella versione pura: si assorbe rapidamente. Versioni al cioccolato o mellate: aggiungi 0,5 Oro. Abbina sempre a Forza o Granello per rallentare l'assorbimento." },
+      { name: "Granola", portion: "50g", value: "1 Energia + 0,5 Oro", slots: ["energia", "oro"], note: "Fiocchi d'avena tostati con olio e dolcificante: la parte Oro viene dai grassi e dagli zuccheri usati nella cottura. Se contiene molta frutta secca aggiungi 0,5 Granello. La versione casalinga (poco olio, poca miele) pesa meno." },
+      { name: "Pizza (2 fette medie)", portion: "~200g", value: "1 Energia + 1 Oro", slots: ["energia", "oro"], note: "La base è Energia (farina), il condimento è Oro (olio + mozzarella). Pizza vegana senza formaggio: 1 Energia + 0,5 Oro. Pizza con abbondante formaggio o bordo ripieno: 1 Energia + 1,5 Oro. La pizza non è un'insidia: è un composito da conteggiare." },
+    ],
+  },
+  {
+    section: "Forza — proteine dense",
+    items: [
+      { name: "Legumi cotti (lenticchie, ceci, fagioli, piselli)", portion: "150g (un piatto)", value: "1 Forza", slots: ["forza"], note: "Fonte densa primaria. I loro carboidrati sono amido resistente a basso impatto glicemico: diversissimi da pasta o pane. ⚠ Ammollo 8-12h riduce i fitati del 50-80% migliorando l'assorbimento di ferro e zinco. Ammollo 24h con cambio acqua o germogliazione attivano anche le fitasi dell'alimento stesso, raddoppiando l'effetto. In scatola già ok." },
+      { name: "Tofu al naturale, tempeh", portion: "100-125g", value: "1 Forza", slots: ["forza"], note: "Fonti dense primarie, contano come Forza. Per il calcio (🦴) non contare sul tofu: quello reperibile in Italia di norma non è coagulato col calcio. Puoi controllare l'etichetta del tuo, ma il calcio prendilo da tahin, rucola e mandorle. Il tempeh è più nutriente perché fermentato." },
+      { name: "Seitan", portion: "100g", value: "1 Forza", slots: ["forza"], note: "Proteina di frumento concentrata. Abbinalo a legumi durante la giornata per completare il profilo amminoacidico." },
+      { name: "Soia granulare o ragù di soia disidratato", portion: "30-40g a secco", value: "1 Forza", slots: ["forza"], note: "Proteina pura a lista ingredienti corta. Ottimo per sughi e ripieni." },
+      { name: "Uova intere", portion: "2 unità", value: "1 Forza", slots: ["forza"], note: "Fonte densa completa. Proteine ad alto valore biologico." },
+      { name: "Pesce (tonno, salmone, merluzzo, seppia)", portion: "150g", value: "1 Forza", slots: ["forza"], note: "Fonte densa, conta solo come Forza. L'omega-3 (🌿) lo coprono solo i pesci grassi: salmone, sgombro, sardine, alici, aringa. I magri come merluzzo, tonno e seppia no. Tonno sott'olio aggiunge 0,5 Oro." },
+
+      { name: "Hummus di ceci", portion: "3-4 cucchiai", value: "0,5 Forza + 0,5 Oro", slots: ["forza", "oro"], note: "~7-8g proteine/100g: sotto soglia, conta come Forza complementare. La parte di tahin lo porta nell'Oro. Abbinalo a peperoni o limone per assorbire meglio il ferro dei ceci." },
+      { name: "Yogurt greco di soia (colato)", portion: "150g", value: "0,5 Forza", slots: ["forza"], note: "5-7g proteine/100g a seconda della marca: Forza complementare. Alcune marche premium arrivano all'8%: in quel caso conta 1 Forza. Controlla l'etichetta." },
+      { name: "Yogurt di soia al naturale classico", portion: "125g", value: "0,5 Forza", slots: ["forza"], note: "Forza complementare. Non usarlo come unica fonte proteica della giornata." },
+      { name: "Latte di soia al naturale", portion: "200ml", value: "0,5 Forza", slots: ["forza"], note: "3-3,5g proteine/100ml: Forza complementare. Il latte di avena, riso e cocco NON conta: troppo sotto soglia." },
+      { name: "Edamame (soia giovane)", portion: "150g sgusciati", value: "1 Forza", slots: ["forza"], note: "Proteina completa ad alto valore biologico: tutti gli amminoacidi essenziali, cosa rara nel mondo vegetale. Surgelati in molti supermercati grandi. 5 minuti in acqua bollente e sono pronti." },
+      { name: "Lupini", portion: "100g sgusciati", value: "0,5 Forza", slots: ["forza"], note: "Legume italiano per eccellenza, alta percentuale di acqua nel prodotto pronto quindi conta come Forza complementare. Proteine buone (~15g/100g secco) e ricchi di fibra prebiotica." },
+      { name: "Lievito nutrizionale", portion: "2 cucchiai (15g)", value: "0,5 Forza", slots: ["forza"], note: "Proteina completa con buon profilo amminoacidico (~8g/15g). Cerca la versione 'rinforzata con B12': è una delle poche fonti alimentari di B12 per vegani, contiene anche zinco (~2mg/15g). Usalo su pasta, zuppe, insalate al posto del parmigiano." },
+      { name: "Pasta di legumi (ceci, lenticchie, piselli)", portion: "80g a crudo", value: "1 Forza + 0,5 Energia", slots: ["forza", "energia"], note: "Composito: le proteine dei legumi (≥20g/100g) portano a 1 Forza; l'amido del formato pasta aggiunge 0,5 Energia. Non classificarla come sola Forza o sola Energia: ha entrambe le componenti. Ottima per chi vuole più proteine in un piatto unico." },
+      { name: "Farina di legumi (ceci, lenticchie, soia)", portion: "50g", value: "1 Forza + 0,5 Energia", slots: ["forza", "energia"], note: "Stesso principio della pasta di legumi: proteina alta + quota amido. Usata in farinata, crêpe salate o impasti. 0,5 Energia per la quota amido, 1 Forza per le proteine." },
+    ],
+  },
+  {
+    section: "Foglia — verdure leggere e fibra prebiotica",
+    items: [
+      { name: "Lattuga, insalata mista, rucola, indivia", portion: "1 piatto abbondante", value: "1 Foglia", slots: ["foglia"], note: "Sforo libero. Rucola e indivia contano anche per il flag 🦴 Calcio." },
+      { name: "Spinaci, bieta, catalogna, cicoria", portion: "1 piatto abbondante", value: "1 Foglia", slots: ["foglia"], note: "Sforo libero. ⚠ Nonostante contengano calcio, gli ossalati presenti ne bloccano l'assorbimento fino all'80-90%: non contano per il flag 🦴." },
+      { name: "Cetriolo, sedano, finocchio", portion: "porzione standard", value: "1 Foglia", slots: ["foglia"], note: "Verdure bianche o verde pallido, quasi pura acqua e fibra. Sforo libero." },
+      { name: "Taccole e fagiolini", portion: "porzione abbondante", value: "1 Foglia", slots: ["foglia"], note: "Baccelli verdi teneri: 2g proteine/100g, impatto metabolico identico alle verdure a foglia. NON sono legumi (Forza) nonostante la famiglia botanica: il baccello si mangia quando i semi sono ancora immaturi." },
+      { name: "Cavolo nero (kale), abbondante", portion: "1 piatto abbondante cotto", value: "1 Foglia + 🦴 Calcio", slots: ["foglia"], note: "Conta anche per il flag 🦴 Calcio. Il calcio delle crucifere è ben assorbibile, senza ossalati bloccanti." },
+      { name: "Songino (valeriana), germogli, misticanza", portion: "porzione abbondante", value: "1 Foglia", slots: ["foglia"], note: "Sforo libero come tutte le Foglie. Il songino è particolarmente ricco di folati. I germogli (soia, alfa alfa, ravanello) aggiungono enzimi attivi e micronutrienti biodisponibili." },
+    ],
+  },
+  {
+    section: "Colore — verdure con micronutrienti specifici",
+    items: [
+      { name: "Carote, zucca, peperoni gialli/arancio", portion: "porzione standard", value: "1 Colore", slots: ["colore"], note: "⚠ Carotenoidi liposolubili: vanno sempre conditi con un filo d'olio. Senza grassi il betacarotene non viene assorbito dall'intestino." },
+      { name: "Zucchine, melanzane", portion: "porzione standard", value: "1 Colore", slots: ["colore"], note: "Verdure estive con flavonoidi e micronutrienti specifici. Le melanzane hanno antocianine (pigmento viola), le zucchine apportano potassio e vitamina C. Vanno nel Colore, non nella Foglia che è riservata alle verdure bianche/verdi acquose." },
+      { name: "Peperoni rossi o gialli crudi", portion: "mezzo peperone (100g)", value: "1 Colore + 🍋 Vit. C", slots: ["colore"], note: "Fonte di vitamina C più concentrata in assoluto (~200mg/100g). Conta per il flag 🍋. La cottura abbatte la vitamina C: preferire crudi o appena scottati." },
+      { name: "Peperoni verdi cotti", portion: "porzione standard", value: "1 Colore", slots: ["colore"], note: "Meno vitamina C dei rossi/gialli ma buona fonte di fibre e antiossidanti." },
+      { name: "Pomodori freschi o salsa di pomodoro", portion: "2 pomodori medi / 100g salsa", value: "1 Colore", slots: ["colore"], note: "Licopene liposolubile: la salsa cotta con olio EVO è più biodisponibile del pomodoro crudo senza condimento." },
+      { name: "Cavolfiore, broccoli, verza, cavolo cappuccio", portion: "porzione standard", value: "1 Colore", slots: ["colore"], note: "Crucifere a testa chiusa = Colore, non Foglia. Broccoli abbondanti contano anche per il flag 🦴 Calcio." },
+      { name: "Barbabietola rossa fresca", portion: "1 piccola (100g)", value: "1 Colore", slots: ["colore"], note: "Pigmenti antiossidanti intensi (betacianine). Contiene zuccheri naturali ma le fibre ne rallentano l'assorbimento." },
+      { name: "Barbabietola in polvere", portion: "1 cucchiaino (5g)", value: "0,5 Colore", slots: ["colore"], note: "Concentrata: 5g di polvere equivalgono a circa 50g di barbabietola fresca. Usala in smoothie o yogurt." },
+      { name: "Funghi (champignon, porcini, shitake)", portion: "porzione libera", value: "0,5 Colore", slots: ["colore"], note: "Non hanno il profilo delle verdure colorate ma danno sazietà e micronutrienti. Non sostituiscono Foglia o Colore veri." },
+      { name: "Asparagi", portion: "150-200g (1 mazzo piccolo)", value: "1 Colore", slots: ["colore"], note: "Ricchi di folati, vitamina K e asparagina (effetto diuretico naturale). Stagione primaverile. Cottura breve al vapore o in padella per preservare i nutrienti." },
+      { name: "Carciofi", portion: "2 carciofi medi", value: "1 Colore", slots: ["colore"], note: "Ricchi di cinarina (supporta la funzione epatica, aiuta a ridurre trigliceridi e colesterolo), inulina prebiotica e ferro. Fonte vegetale di ferro sottovalutata: abbina vitamina C per massimizzare l'assorbimento." },
+      { name: "Radicchio rosso, radicchio di Treviso", portion: "porzione abbondante", value: "1 Colore", slots: ["colore"], note: "I pigmenti rosso-viola sono antocianine antiossidanti: per questo vanno nel Colore e non nella Foglia. L'amaro tipico (lattucina, inulina) è benefico per fegato e intestino. Ottimo crudo o grigliato." },
+    ],
+  },
+  {
+    section: "Frutto — zuccheri naturali tamponati",
+    items: [
+      { name: "Mela, pera, pesca, prugna, albicocca", portion: "1 frutto medio", value: "1 Frutto", slots: ["frutto"], note: "Sempre intero, mai in succo: la fibra è quello che distingue il frutto dallo zucchero." },
+      { name: "Banana, fico, uva", portion: "1 frutto medio", value: "1 Frutto", slots: ["frutto"], note: "Più zuccherosi ma la fibra riduce comunque l'impatto glicemico rispetto a dolci o succhi." },
+      { name: "Kiwi, agrumi (arancia, mandarino, pompelmo)", portion: "1 frutto", value: "1 Frutto + 🍋 Vit. C", slots: ["frutto"], note: "Contano anche per il flag 🍋 Vitamina C. Mangia la polpa, non solo il succo." },
+      { name: "Fragole, ciliegie, mirtilli, lamponi", portion: "150g (una manciata abbondante)", value: "1 Frutto", slots: ["frutto"], note: "Fragole contano per il flag 🍋 Vitamina C. Ciliegie no: troppo povere di vitamina C (~7mg/100g)." },
+      { name: "Macedonia fresca", portion: "1 porzione abbondante", value: "1-2 Frutto", slots: ["frutto"], note: "Valuta in base alla quantità: una piccola = 1, abbondante = 2." },
+      { name: "Marmellata con zuccheri aggiunti", portion: "2 cucchiaini", value: "0,5 Frutto", slots: ["frutto"], note: "Le fibre della frutta originale si riducono con la lavorazione. Conta meno di un frutto intero." },
+      { name: "Melograno (semi)", portion: "1 melograno medio / 100g semi", value: "1 Frutto", slots: ["frutto"], note: "Tra i frutti più ricchi di polifenoli antiossidanti (punicalagine). Conta solo i semi, non il succo industriale che perde tutta la fibra. Stagione autunnale: settembre-dicembre." },
+      { name: "Mango, papaia", portion: "1 fetta generosa (150g)", value: "1 Frutto", slots: ["frutto"], note: "Mango è ricco di betacarotene (ma viene classificato come Frutto, non Colore, per il profilo metabolico degli zuccheri). La papaia contiene papaina, enzima digestivo. Più zuccherini della frutta temperata: tieniti a 1 porzione." },
+      { name: "Datteri, fichi secchi", portion: "2-3 pezzi", value: "0,5 Frutto", slots: ["frutto"], note: "Frutta essiccata: gli zuccheri sono concentrati e il volume è ingannevolmente piccolo. 2-3 datteri o fichi secchi equivalgono a circa metà frutto fresco. Ottimi come dolcificante naturale nelle ricette." },
+      { name: "Cachi (kaki)", portion: "1 frutto maturo", value: "1 Frutto", slots: ["frutto"], note: "Frutto autunnale italiano. Ricchi di betacarotene e vitamina C. Due varietà: il Fuyu si mangia anche sodo, l'Hachiya solo completamente morbido (altrimenti astringente per i tannini)." },
+    ],
+  },
+  {
+    section: "Granello — grassi funzionali e micronutrienti",
+    items: [
+      { name: "Noci, nocciole, anacardi, pistacchi", portion: "15g (1 cucchiaio)", value: "1 Granello", slots: ["granello"], note: "Noci: la migliore fonte di omega-3 (ALA) tra la frutta secca. Conta anche per il flag 🌿 Omega-3." },
+      { name: "Mandorle", portion: "15-20g (1 cucchiaio)", value: "1 Granello + 🦴 Calcio", slots: ["granello"], note: "Triplo beneficio: calcio (~70mg/30g, senza ossalati), vitamina E (la fonte vegetale più concentrata, protegge LDL e omega-3), magnesio. Conta anche per il flag 🦴. Una delle scelte migliori all'interno del Granello." },
+      { name: "Semi di lino macinati", portion: "1 cucchiaio", value: "1 Granello + 🌿 Omega-3", slots: ["granello"], note: "⚠ DEVONO essere macinati: interi passano senza rilasciare nutrienti. Macina al momento o conserva già macinati in frigo (si ossidano rapidamente). Conta per il flag 🌿 Omega-3." },
+      { name: "Semi di chia", portion: "1 cucchiaio", value: "1 Granello + 🌿 Omega-3", slots: ["granello"], note: "⚠ Ammollare 15-20 min: il gel formatosi rilascia i nutrienti molto meglio. Conta per il flag 🌿 Omega-3." },
+      { name: "Semi di zucca, girasole, sesamo", portion: "1 cucchiaio", value: "1 Granello", slots: ["granello"], note: "Buona fonte di zinco e magnesio. Il sesamo macinato (tahin) è anche una fonte di calcio." },
+      { name: "Tahin (pasta di sesamo puro)", portion: "1 cucchiaio colmo", value: "1 Oro + 0,5 Granello + 🦴 Calcio", slots: ["oro", "granello"], note: "Per la densità calorica va principalmente nell'Oro, ma la quota di sesamo contribuisce al Granello. ~130mg Ca per cucchiaio: conta per il flag 🦴." },
+      { name: "Cioccolato fondente >85%", portion: "15g (1-2 quadretti)", value: "0,5 Granello", slots: ["granello"], note: "Grassi prevalentemente insaturi e flavonoidi antiossidanti. Oltre l'85% il contenuto di zuccheri è trascurabile." },
+      { name: "Semi di canapa decorticati", portion: "1 cucchiaio (10g)", value: "1 Granello + 🌿 Omega-3", slots: ["granello"], note: "Rapporto omega-6/omega-3 ideale (3:1) e proteina completa (~5g/cucchiaio, tutti gli amminoacidi essenziali). Nei negozi bio o online: marche Nutiva, Manitoba Harvest. Si aggiungono a freddo su insalate, yogurt o smoothie senza cuocere." },
+    ],
+  },
+  {
+    section: "Oro — calorie accessorie",
+    items: [
+      { name: "Olio extravergine d'oliva (EVO)", portion: "1 cucchiaio", value: "1 Oro", slots: ["oro"], note: "La fonte di Oro più nobile: grassi monoinsaturi e polifenoli antiossidanti. Preferire a crudo o cottura breve." },
+      { name: "Olio di canapa (a crudo)", portion: "1 cucchiaio", value: "1 Oro + 🌿 Omega-3", slots: ["oro"], note: "Solo a crudo, non scaldare. Conta anche per il flag 🌿 Omega-3 (ALA molto alto)." },
+      { name: "Burro d'arachidi o mandorle 100%", portion: "1 cucchiaio colmo", value: "1 Oro + 0,5 Granello", slots: ["oro", "granello"], note: "Solo le versioni 100% frutta secca, senza zuccheri o oli aggiunti." },
+      { name: "Olive nere o verdi", portion: "6-8 olive", value: "0,5 Oro", slots: ["oro"], note: "Grassi monoinsaturi: praticamente ogni oliva è come un cucchiaino d'olio." },
+      { name: "Mozzarella vaccina o fior di latte", portion: "100g (una pallina)", value: "1 Oro", slots: ["oro"], note: "Grasso saturo + proteine, ma in questa dieta i formaggi vanno nell'Oro perché si usano come accompagnamento, non come fonte proteica primaria. Con il tuo profilo lipidico, usa con moderazione." },
+      { name: "Ricotta, fiocchi di latte", portion: "100g", value: "0,5 Oro", slots: ["oro"], note: "Meno grassi della mozzarella. Porzione moderata come condimento o aggiunta." },
+      { name: "Formaggio stagionato (parmigiano, pecorino, grana)", portion: "20-30g (spolverata generosa)", value: "0,5 Oro", slots: ["oro"], note: "Ad alto contenuto di grassi saturi. Usa come insaporitore, non come portata." },
+      { name: "Mozzarella vegana industriale (riso o fecola)", portion: "50g", value: "1 Oro", slots: ["oro"], note: "Olio di cocco + amidi: nessun contributo proteico. Non ingannare il tassello Forza con questo prodotto." },
+      { name: "Gelato cremoso (coppetta piccola)", portion: "1 coppetta (100-120ml)", value: "1 Energia + 0,5 Oro", slots: ["energia", "oro"], note: "Ha sia zuccheri (Energia) che grassi del latte o vegetali (Oro). Non è un Frutto. Sorbetto alla frutta senza latte = 1 Frutto invece." },
+      { name: "Avocado", portion: "1/2 frutto medio", value: "1,5 Oro", slots: ["oro"], note: "Nonostante sia un frutto botanicamente, ha grassi dominanti (15g/100g): va nell'Oro. Non conta come Frutto." },
+      { name: "Vino (1 calice, 0,1L)", portion: "1 calice", value: "0,5 Oro", slots: ["oro"], note: "Alcol = caloria accessoria. L'alcol favorisce la conversione epatica in trigliceridi: con il tuo profilo lipidico, tienilo basso." },
+      { name: "Birra (media, 0,3L)", portion: "1 media", value: "1 Oro", slots: ["oro"], note: "Come il vino: caloria accessoria. Piccola (0,2L) = 0,5 Oro." },
+      { name: "Latte di cocco (in lattina, da cucina)", portion: "50ml (3 cucchiai)", value: "1 Oro", slots: ["oro"], note: "Grassi saturi alti (acido laurico): caloria accessoria densa. Quello in lattina per cucinare è molto più concentrato del latte di cocco da bere. Con il profilo trigliceridi alti, usalo con misura." },
+      { name: "Pesto (basilico, olio, pinoli)", portion: "1 cucchiaio colmo", value: "0,5 Oro", slots: ["oro"], note: "Olio + frutta secca (pinoli o noci) + eventuale formaggio: va nell'Oro. I pinoli contribuiscono come Granello ma in piccola quantità: 1 cucchiaio conta solo come Oro. Versione vegana (senza formaggio) identica." },
+    ],
+  },
+  {
+    section: "Insidie comuni e ultra-trasformati",
+    items: [
+      { name: "Hamburger vegano industriale", portion: "1 unità", value: "1 Forza + 1 Oro", slots: ["forza", "oro"], note: "0,5 Oro base (olio di cottura/grassi) + 0,5 Oro di penale per la lista ingredienti lunga. Conta come Forza ma l'efficienza nutrizionale è molto più bassa di legumi o tofu." },
+      { name: "Biscotti industriali o frollini", portion: "3-4 biscotti", value: "1 Energia + 0,5 Oro", slots: ["energia", "oro"], note: "Farina raffinata + olio di palma o margarina + zuccheri. Penale +0,5 Oro per i grassi industriali nascosti." },
+      { name: "Cornetto o brioche da bar", portion: "1 unità", value: "1 Energia + 0,5 Oro", slots: ["energia", "oro"], note: "Farina raffinata + grassi idrogenati + zuccheri. Penale +0,5 Oro per la componente grassa industriale nascosta." },
+      { name: "Patatine fritte in sacchetto", portion: "30g", value: "1 Energia + 1,5 Oro", slots: ["energia", "oro"], note: "Amido (Energia) + grasso saturo di frittura (1 Oro base) + penale +0,5 Oro per l'ultra-trasformazione. Triplo impatto." },
+      { name: "Bibite zuccherate o succhi industriali", portion: "200ml", value: "1 Energia + 0,5 Oro", slots: ["energia", "oro"], note: "Zuccheri liquidi + penale ultra-trasformati. Nessuna fibra: picco glicemico diretto. Non contano come Frutto." },
+    ],
+  },
+  {
+    section: "🍷 Alcol — conversioni in Oro",
+    items: [
+      { name: "Vino (rosso, bianco, rosato)", portion: "1 calice (125ml)", value: "1 Oro", slots: ["oro"], note: "Un calice standard da 125ml = 1 Oro. Due calici a cena = 2 Oro, che sommati all'olio di condimento superano già il target giornaliero. ⚠ L'alcol alza direttamente i trigliceridi: con il tuo profilo lipidico (trigliceridi 233) anche un consumo moderato ha un impatto reale. Ogni calice in meno è la leva più diretta per abbassarli." },
+      { name: "Birra media (bottiglia 330ml o pinta)", portion: "1 unità", value: "1,5 Oro", slots: ["oro"], note: "330ml di birra media (5% vol.) = 1,5 Oro per la combinazione alcol + maltosio. La birra analcolica conta 0,5 Oro (zuccheri del malto senza alcol). ⚠ Stessa nota trigliceridi del vino: l'alcol è la causa diretta, non i grassi alimentari." },
+      { name: "Birra grande (500ml)", portion: "1 unità", value: "2 Oro", slots: ["oro"], note: "500ml a 5% vol. = 2 Oro: da sola esaurisce il target giornaliero." },
+      { name: "Superalcolico (whisky, gin, rum, vodka)", portion: "1 dose (40ml)", value: "1 Oro", slots: ["oro"], note: "40ml di superalcolico (40% vol.) = 1 Oro. Il volume è piccolo ma la concentrazione alcolica è alta. I cocktail miscelati con succhi o sciroppi aggiungono ulteriore Oro per gli zuccheri." },
+      { name: "Prosecco o spumante", portion: "1 flûte (100ml)", value: "0,5 Oro", slots: ["oro"], note: "Porzione più piccola e gradazione inferiore al vino fermo. Due flûte = 1 Oro." },
+    ],
+  },
+  {
+    section: "🔀 Casi difficili — compositi e piatti misti",
+    items: [
+      { name: "Poke bowl", portion: "1 ciotola standard", value: "1 Energia + 1 Forza + 0,5-1 Oro", slots: ["energia", "forza", "oro"], note: "Somma i componenti visibili: riso = 1 Energia, tofu/edamame/salmone = 1 Forza, avocado o salse grasse = 0,5-1 Oro. Più verdure colorate ci sono, più Colore aggiungi. Regola: guarda il piatto e conta ogni componente per quello che è." },
+      { name: "Sushi (8-10 pezzi misti)", portion: "1 porzione da ristorante", value: "1 Energia + 0,5-1 Forza", slots: ["energia", "forza"], note: "Il riso è la componente dominante (Energia). Il pesce o tofu aggiunge 0,5-1 Forza a seconda della quantità. Salse tipo maionese o tempura aggiungono 0,5 Oro. I roll vegani con solo verdure: 1 Energia + 0,5 Colore." },
+      { name: "Zuppa legumi + cereali (pasta e fagioli, minestrone)", portion: "1 piatto abbondante", value: "1 Forza + 1 Energia", slots: ["forza", "energia"], note: "Piatto misto per eccellenza: conta i legumi come Forza e il cereale (pasta, orzo, farro) come Energia. Se i legumi sono molto abbondanti rispetto alla pasta, puoi approssimare a 1,5 Forza + 0,5 Energia. Regola: guarda chi domina nel piatto." },
+      { name: "Buddha bowl o grain bowl", portion: "1 ciotola standard", value: "1 Energia + 1 Forza + 1 Colore + 0,5 Oro", slots: ["energia", "forza", "colore", "oro"], note: "Il formato bowl è già pensato per il bilanciamento: cereale base (Energia) + proteina (Forza) + verdure colorate (Colore) + condimento (Oro). Vai per componenti: ogni elemento conta per il suo tassello." },
+      { name: "Frullato proteico (latte vegetale + frutta + Granello)", portion: "1 bicchiere grande", value: "0,5 Forza + 1 Frutto + 1 Granello", slots: ["forza", "frutto", "granello"], note: "Conta ogni ingrediente separatamente: latte di soia = 0,5 Forza; frutta = 1 Frutto; semi di lino o chia = 1 Granello. Se aggiungi yogurt di soia colato aggiungi 0,5 Forza. Il frullato non è un tassello a sé: è la somma di quello che ci metti." },
+      { name: "Hummus come piatto (abbondante, con pane)", portion: "5-6 cucchiai + pane", value: "1 Forza + 0,5 Oro + 1 Energia", slots: ["forza", "oro", "energia"], note: "Quando l'hummus è il piatto principale (non un contorno), conta l'intera porzione: 5-6 cucchiai = ~1 Forza complementare + 0,5 Oro (tahin e olio). Il pane o la piadina di accompagnamento aggiungono 1 Energia. Come condimento (2-3 cucchiai): 0,5 Forza + 0,5 Oro." },
+      { name: "Burger vegano (con panino)", portion: "1 unità completa", value: "1 Forza + 1 Energia + 1 Oro", slots: ["forza", "energia", "oro"], note: "Il patty vegano industriale = 1 Forza + 0,5 Oro (grassi + penale ultra-trasformati). Il panino = 1 Energia. Le salse aggiungono 0,5 Oro. Totale tipico: 1 Forza + 1 Energia + 1-1,5 Oro. Burger vegano artigianale (a base di legumi con lista corta): togli la penale ultra-trasformati." },
+      { name: "Granola (anche con frutta secca)", portion: "50g", value: "1 Energia + 0,5 Oro + 0,5 Granello (se frutta secca abbondante)", slots: ["energia", "oro", "granello"], note: "Base: 1 Energia + 0,5 Oro (olio e dolcificante della tostatura). Se contiene noci, mandorle o semi in quantità visibile aggiungi 0,5 Granello. La versione industriale con scaglie di cioccolato o miele extra aggiunge ulteriore 0,5 Oro. La granola casalinga con poco olio e poco dolcificante: 1 Energia + 0,5 Oro." },
+    ],
+  },
+  {
+    section: "🍋 Flag Vitamina C — fonti concentrate (vegane)",
+    items: [
+      { name: "Kiwi", portion: "1-2 frutti", value: "1 Frutto + 🍋 Vit. C", slots: ["frutto"], note: "~90mg vit. C per frutto, tra le fonti più alte" },
+      { name: "Arancia, mandarino, pompelmo", portion: "1 frutto", value: "1 Frutto + 🍋 Vit. C", slots: ["frutto"], note: "classico, mangia la polpa non solo il succo" },
+      { name: "Fragole", portion: "1 manciata (150g)", value: "1 Frutto + 🍋 Vit. C", slots: ["frutto"], note: "~85mg vit. C per 100g" },
+      { name: "Peperoni crudi (rosso, giallo, arancio)", portion: "mezzo peperone", value: "1 Colore + 🍋 Vit. C", slots: ["colore"], note: "fonte più concentrata in assoluto (~200mg/100g). Crudi: la cottura abbatte la vit. C" },
+      { name: "Limone (succo su un piatto)", portion: "mezzo limone (~25-30ml)", value: "jolly + 🍋 Vit. C", slots: [], note: "Non vale come Frutto ma copre il flag da solo. Mezzo limone (~25ml) dà circa 15-20mg di vitamina C: sufficiente per il flag se abbinato a un pasto con legumi. ⚠ Ferro vegetale + Vit. C nello stesso pasto: l'assorbimento del ferro si moltiplica per 3-4x. Caffè o tè entro 1h dal pasto blocca l'assorbimento (tannini)." },
+    ],
+  },
+  {
+    section: "🌿 Flag Omega-3 — fonti vegetali (ALA e DHA/EPA)",
+    items: [
+      { name: "Semi di lino macinati", portion: "1 cucchiaio", value: "1 Granello + 🌿 Omega-3", slots: ["granello"], note: "⚠ DEVONO essere macinati: interi passano intatti senza rilasciare omega-3. Macina al momento o tieni in frigo già macinati (si ossidano in fretta)" },
+      { name: "Semi di chia", portion: "1 cucchiaio", value: "1 Granello + 🌿 Omega-3", slots: ["granello"], note: "⚠ Ammollare 15-20 min in acqua o latte vegetale: il gel che si forma rilascia i nutrienti. Secchi e interi si assorbono molto meno" },
+      { name: "Noci (4-5 noci)", portion: "4-5 noci", value: "1 Granello + 🌿 Omega-3", slots: ["granello"], note: "ALA buono. La migliore fonte di omega-3 tra la frutta secca" },
+      { name: "Alghe (nori, wakame, spirulina)", portion: "porzione standard", value: "0,5 Colore + 🌿 Omega-3", slots: ["colore"], note: "unica fonte vegana di EPA e DHA diretti. Le alghe sono quello che mangiano i pesci. Aggiungi nori all'insalata o spirulina in uno smoothie" },
+      { name: "Olio di canapa (a crudo)", portion: "1 cucchiaio", value: "1 Oro + 🌿 Omega-3", slots: ["oro"], note: "ALA molto alto. Solo a crudo, non cuocerlo" },
+      { name: "Integratore olio di microalghe (DHA/EPA)", portion: "1 capsula", value: "🌿 Omega-3 diretto", slots: [], note: "la via vegana completa agli omega-3 attivi. Se vuoi EPA/DHA senza affidarti alla conversione ALA→DHA" },
+      { name: "Semi di canapa decorticati", portion: "1 cucchiaio (10g)", value: "1 Granello + 🌿 Omega-3", slots: ["granello"], note: "Rapporto omega-6/omega-3 ideale (3:1). Anche fonte di proteina completa. A freddo: non scaldare." },
+    ],
+  },
+  {
+    section: "🦴 Calcio vegetale — fonti concrete e dove trovarle",
+    items: [
+      { name: "Tahin (pasta di sesamo)", portion: "1 cucchiaio colmo", value: "1 Oro + 0,5 Granello + 🦴 Calcio", slots: ["oro", "granello"], note: "~130mg Ca per cucchiaio. Si trova ovunque: supermercati normali, negozi bio, Amazon. Marca: Achva, Al'Fez, Masserie di Sant'Eramo. Usalo ogni giorno nel condimento e il calcio arriva quasi automatico." },
+      { name: "Rucola", portion: "80-100g (una busta)", value: "1 Foglia + 🦴 Calcio", slots: ["foglia"], note: "160mg Ca per 100g — sorprendentemente ricca. Si trova ovunque già pronta in busta. Mettila nell'insalata o sulla pizza vegana. Ottima fonte quotidiana di calcio senza nessuno sforzo." },
+      { name: "Indivia belga o cicoria da taglio", portion: "1 cespo / piatto", value: "1 Foglia + 🦴 Calcio", slots: ["foglia"], note: "90-150mg Ca per 100g. Hai già l'indivia in frigo — conta. Cicoria, radicchio verde, puntarelle: stessa famiglia, stesso beneficio." },
+      { name: "Mandorle (manciata, 30g)", portion: "30g = circa 20 mandorle", value: "0,5 Granello + 🦴 Calcio", slots: ["granello"], note: "Triplo beneficio: ~70mg Ca per manciata (senza ossalati bloccanti), vitamina E in assoluto la fonte vegetale più concentrata (protegge le LDL dall'ossidazione e gli omega-3 dalla degradazione), magnesio abbondante. Una delle scelte migliori all'interno del Granello per il tuo profilo lipidico." },
+      { name: "Cavolo nero (kale), abbondante", portion: "1 piatto abbondante cotto", value: "1 Foglia + 🦴 Calcio", slots: ["foglia"], note: "Calcio delle crucifere è molto ben assorbibile (meglio degli spinaci che hanno ossalati bloccanti). Si trova stagionalmente nei mercati e negozi bio." },
+      { name: "Broccoli cotti, abbondanti", portion: "1 piatto abbondante (200g+)", value: "1 Colore + 🦴 Calcio", slots: ["colore"], note: "Porzione abbondante per contribuire al flag. Cotti al vapore o saltati — non bolliti a lungo." },
+      { name: "⚠ Spinaci e biete — NON contano per il calcio", portion: "qualsiasi", value: "1 Foglia (solo)", slots: ["foglia"], note: "Pur contenendo calcio sulla carta, spinaci e biete sono ricchi di ossalati che ne bloccano l'assorbimento fino all'80-90%. Valgono come Foglia eccellente ma non come fonte di calcio per il flag 🦴." },
+      { name: "Acqua minerale calcica", portion: "500ml-1L al giorno", value: "🦴 Calcio silenzioso", slots: [], note: "Cerca Ca ≥250 mg/L in etichetta: San Pellegrino (Ca 163mg/L — discreta), Ferrarelle (Ca 365mg/L — ottima), Contrex (Ca 468mg/L — eccellente, al supermercato). Con 1L di Ferrarelle prendi 365mg Ca senza mangiare nulla di speciale." },
+      { name: "Latte di soia o avena addizionato con Ca", portion: "200ml", value: "0,5 Forza + 🦴 Calcio", slots: ["forza"], note: "Fonte primaria di calcio: 200ml = ~240mg Ca (quasi un quarto del fabbisogno giornaliero). Controlla etichetta: deve mostrare Ca ≥120mg/100ml (Alpro, Joya, Oatly). Il latte di soia vale anche 0,5 Forza per le proteine. Il latte di avena e riso NON addizionato non conta per il calcio." },
+    ],
+  },
+];
+
+// ===== data/guida.js =====
+// data/guida.js
+// Contenuto testuale della Guida: PILASTRI, INTERAZIONI, INFO_SEZIONI.
+// Sole costanti: nessun React, nessuna dipendenza.
+
+const PILASTRI = [
+  {
+    id: "regola-piatto",
+    title: "La regola visiva del piatto",
+    icon: "🍽",
+    body: "A pranzo e cena visualizza il piatto diviso in quarti: metà alle verdure (Foglia + Colore), un quarto alla Forza, un quarto all'Energia. Con questa proporzione tutti i target giornalieri si coprono quasi automaticamente senza calcoli.",
+  },
+  {
+    id: "soglia-proteica",
+    title: "La soglia dell'8% per la Forza",
+    icon: "🛡",
+    body: "Un alimento conta come Forza piena solo se ha ≥8g di proteine per 100g. Sotto quella soglia conta al massimo come 0,5 Forza complementare.\n\nForza densa (≥8g/100g): legumi, tofu, tempeh, seitan, uova, pesce, formaggi.\nForza complementare (5-8g/100g): yogurt greco di soia, latte di soia, hummus.\nNon conta come Forza: latte di avena, latte di riso, mozzarella vegana industriale — troppo sotto soglia.\n\nRegola pratica: almeno 1 delle 2 porzioni giornaliere di Forza deve essere una fonte densa. Yogurt e latte di soia contano ma non possono essere l'unica Forza del giorno.",
+  },
+  {
+    id: "granello-vs-oro",
+    title: "Granello vs Oro — grassi funzionali vs calorie accessorie",
+    icon: "⚖️",
+    body: "Entrambi contengono grassi, ma la logica è opposta.\n\nGranello: grassi insaturi concentrati + micronutrienti reali (omega-3, vitamina E, calcio, magnesio). Piccole quantità con alta densità nutrizionale. Da raggiungere ogni settimana.\n\nOro: calorie che entrano nel piatto senza costruire, proteggere o nutrire in modo diretto. Olio di condimento, alcol, formaggi, dolci, grassi di cottura. Da misurare perché è facile accumularne senza accorgersene.\n\nEsempio: le mandorle sono Granello (omega-3, vitamina E, calcio). L'olio EVO è Oro (calorie accessorie, anche se buone).\n\nNota selenio: le noci del Brasile sono una fonte eccezionale di selenio. 1-2 noci al giorno bastano a coprire il fabbisogno: non superare questa quantità perché il selenio in eccesso è tossico.",
+  },
+  {
+    id: "costo-doppio",
+    title: "La penale degli ultra-trasformati",
+    icon: "⚠",
+    body: "Se la lista ingredienti è lunga (7+ elementi, additivi, oli idrogenati, zuccheri aggiunti), la penale è sempre +0,5 Oro, indipendentemente dal tassello base.\n\nEsempi:\nCornetto da bar → 1 Energia + 0,5 Oro (penale)\nBiscotti industriali → 1 Energia + 0,5 Oro (penale)\nHamburger vegano → 1 Forza + 0,5 Oro (penale) + eventuale 0,5 Oro base\nPatatine fritte → 1 Energia + 1,5 Oro (1 base grasso + 0,5 penale)\n\nPerché Oro? Gli ultra-trasformati hanno sempre grassi nascosti (olio di palma, margarina, frittura). La penale va dove appartiene: alle calorie accessorie.",
+  },
+  {
+    id: "ancora-sazieta",
+    title: "L'ancora della sazietà",
+    icon: "🌿",
+    body: "In caso di fame improvvisa fuori dai pasti, il tassello Foglia non ha limite: finocchi, sedano, carote crude, cetrioli, insalata. Volume illimitato senza impatto su nessun target.\n\nLa Foglia funziona da ancora perché il volume riempie lo stomaco e le fibre rallentano lo svuotamento gastrico, azzerando la fame emotiva senza contribuire a sfori.",
+  },
+  {
+    id: "idratazione",
+    title: "L'idratazione invisibile",
+    icon: "💧",
+    body: "Un bicchiere d'acqua prima di ogni pasto. Il corpo confonde spesso la disidratazione con la fame: bere prima riduce le porzioni in modo naturale.\n\n8 bicchieri totali al giorno tra acqua, tè e tisane non zuccherate. Se bevi acqua calcica (Ferrarelle, Contrex ≥250mg/L di Ca) contribuisce silenziosamente al flag 🦴.",
+  },
+  {
+    id: "iodio",
+    title: "Iodio: basta il sale iodato",
+    icon: "🧂",
+    body: "Il fabbisogno di iodio è 150 µg al giorno. Con un uso regolare di sale iodato in cucina (3-5g) si copre senza bisogno di monitoraggio attivo.\n\nControlla l'etichetta: il sale marino e quello himalayano non contengono iodio aggiunto. Solo il sale esplicitamente etichettato come \"iodato\" garantisce la dose.\n\nLe alghe nori ne contengono, ma in quantità imprevedibili (da 16 µg a oltre 2.000 µg per foglio a seconda dell'origine): non sono una fonte affidabile. Le alghe kelp e kombu possono portare a un eccesso.",
+  },
+  {
+    id: "vitd",
+    title: "Vitamina D: monitora in inverno",
+    icon: "☀️",
+    body: "La vitamina D non si ricava dalla dieta in quantità significativa, nemmeno da quella onnivora. La produce il corpo con l'esposizione solare.\n\nIn inverno (ottobre-aprile) alle latitudini italiane la produzione è quasi zero. Il tuo medico ha già richiesto il test del 25-OH vitamina D agli esami di controllo: appena hai il risultato, valuta con lui se integrare.\n\nNota: l'olio di microalghe nu3 che stai già prendendo per gli omega-3 contiene 20µg di vitamina D per dose giornaliera.",
+  },
+];
+
+// ============================================================
+// INTERAZIONI — Sinergie e blocchi nutrizionali
+// ============================================================
+
+const INTERAZIONI = [
+  {
+    verb: "Potenzia",
+    subtitle: "insieme valgono di più",
+    color: "#5a7a3c",
+    items: [
+      {
+        title: "Ferro vegetale + Vitamina C",
+        body: "Assorbimento ×3-4. Aggiungi limone, peperone crudo, kiwi o arancia nello stesso pasto dei legumi. La sinergia più importante per chi ha ferritina bassa.",
+      },
+      {
+        title: "Carotenoidi + grassi",
+        body: "Carote, zucca, peperoni e pomodoro rilasciano il betacarotene solo con un grasso. Un filo d'olio EVO, avocado o semi sono sufficienti: senza non vengono assorbiti.",
+      },
+      {
+        title: "Licopene + cottura con grassi",
+        body: "La salsa di pomodoro cotta con olio rilascia più licopene del pomodoro crudo scondito. Cottura e grasso moltiplicano la biodisponibilità.",
+      },
+      {
+        title: "Vitamina E + Omega-3",
+        body: "La vitamina E protegge gli omega-3 (e le LDL) dall'ossidazione. Abbina mandorle a semi di lino o noci nello stesso giorno.",
+      },
+      {
+        title: "Curcuma + pepe nero",
+        body: "La piperina del pepe nero aumenta la biodisponibilità della curcumina fino a ~20 volte. La curcumina è liposolubile: aggiungi anche un filo d'olio.",
+      },
+    ],
+  },
+  {
+    verb: "Blocca",
+    subtitle: "si annullano a vicenda",
+    color: "#b03832",
+    items: [
+      {
+        title: "Caffè e tè + ferro",
+        body: "I tannini bloccano l'assorbimento del ferro vegetale entro 1h dal pasto. Con ferritina bassa è critico: tieni il caffè lontano dai pasti con legumi.",
+      },
+      {
+        title: "Ossalati + calcio",
+        body: "Spinaci e biete bloccano il proprio calcio all'80-90% (ossalati). Non valgono per il flag 🦴: usa rucola, mandorle, tahin, cavolo nero o broccoli abbondanti.",
+      },
+      {
+        title: "Fitati + minerali",
+        body: "Legumi e cereali integrali riducono l'assorbimento di ferro, zinco e calcio. Si riduce del 50-80% con l'ammollo (vedi Attiva).",
+      },
+    ],
+  },
+  {
+    verb: "Attiva",
+    subtitle: "la preparazione sblocca i nutrienti",
+    color: "#8b6332",
+    items: [
+      {
+        title: "Semi di lino → macinare",
+        body: "Interi passano senza rilasciare gli omega-3. Macina al momento o conserva già macinati in frigo: si ossidano rapidamente.",
+      },
+      {
+        title: "Semi di chia → ammollare 15-20 min",
+        body: "Il gel che si forma rilascia i nutrienti molto meglio dei semi secchi. Aggiungili in acqua o latte vegetale prima di usarli.",
+      },
+      {
+        title: "Legumi → ammollo 8-12h",
+        body: "Riduce i fitati del 50-80%, migliorando l'assorbimento di ferro e zinco. 24h con cambio acqua o germogliazione raddoppiano l'effetto.",
+      },
+    ],
+  },
+];
+
+// ============================================================
+// INFO — Come funziona l'app
+// ============================================================
+
+const INFO_SEZIONI = [
+  {
+    titolo: "Il sistema in 30 secondi",
+    testo: "7 tasselli al giorno. Non conti calorie né grammi: riconosci a quale tassello appartiene quello che mangi e fai in modo di toccarli tutti entro sera. Ogni tassello ha un'unità di misura pratica — parti visive, pezzi interi, cucchiai — calibrata su porzioni normali.",
+  },
+  {
+    titolo: "Come classificare un alimento",
+    testo: "Applica queste domande nell'ordine:\n\n1. Ha amido ≥15g/100g e proteine <8g/100g? → Energia (cereali, pane, patate).\n2. Ha proteine ≥8g/100g? → Forza densa (legumi, tofu, pesce, uova). Tra 5-8g/100g → 0,5 Forza complementare (yogurt soia, latte soia).\n3. È una verdura verde o bianca, leggera, acquosa? → Foglia (lattuga, taccole, indivia, cetriolo, sedano).\n4. È una verdura con pigmenti vivaci o micronutrienti specifici? → Colore (carote, peperoni, zucchine, melanzane, pomodori, broccoli).\n5. È frutta fresca intera? → Frutto. Se ha grassi dominanti (avocado) → Oro.\n6. È frutta secca, semi, creme 100%? → Granello (grassi funzionali + micronutrienti).\n7. Tutto il resto — olio, formaggi, alcol, dolci, grassi di cottura → Oro (calorie accessorie).\n\nCompositi di confine:\n· Pasta o farina di legumi (es. pasta di ceci, di lenticchie): 1 Forza + 0,5 Energia — ha le proteine dei legumi ma anche l'amido del formato pasta.\n· Piatti misti (poke, sushi, zuppe legumi + cereali, buddha bowl): somma i componenti visibili a quarti di piatto. Il riso del poke vale Energia, il tofu vale Forza, l'avocado vale Oro: conta ognuno per quello che è.",
+  },
+  {
+    titolo: "I 7 tasselli e i loro target",
+    testo: "Energia (max 3 parti): carboidrati complessi strutturali — cereali, pane, patate. Tetto, non obiettivo.\nForza (2 parti min): proteine dense — legumi, tofu, tempeh, seitan, uova, pesce. Almeno 1 delle 2 parti deve essere una fonte primaria: yogurt e latte di soia contano ma non possono essere l'unica Forza.\nFoglia (min 1,5 parti): verdure leggere a foglia o struttura acquosa. Sforo libero.\nColore (min 1,5 parti): verdure con pigmenti antiossidanti o micronutrienti specifici. Sforo libero.\nFrutto (min 2 unità): frutta fresca intera con fibra intatta.\nOro (2 cucchiai target, max 5): calorie accessorie — olio, formaggi (animali e vegetali), alcol, dolci, grassi di cottura. Non è da eliminare, è da misurare.\nGranello (7 cucchiai negli ultimi 7 giorni): grassi funzionali — noci, semi, mandorle. Rolling, non settimanale fisso.",
+  },
+  {
+    titolo: "Cos'è una parte",
+    testo: "Una parte = un quarto di piatto fisico. Frutto si conta in pezzi interi. Oro e Granello in cucchiai. Il tap + aggiunge 0,5 parti per Energia, Forza, Foglia e Colore; 1 unità per Frutto; 0,5 cucchiai per Oro; 1 cucchiaio per Granello. Approssima alla porzione più vicina: non serve la bilancia.",
+  },
+  {
+    titolo: "Il pannello Cosa ti manca",
+    testo: "Si aggiorna in tempo reale. I pallini indicano l'urgenza: rosso = tassello critico o secondo giorno consecutivo in difetto, giallo = primo giorno sotto o parzialmente coperto, grigio = nota informativa. Quando tutti i tasselli sono chiusi mostra solo 'Giornata chiusa'.",
+  },
+  {
+    titolo: "Se sfori",
+    testo: "Energia: l'app abbassa automaticamente il target dei giorni successivi e spalma il rientro fino a 5 giorni. Forza: abbassa di 0,5 il giorno dopo, mai sotto 1,5 parti. Oro: se ieri hai superato i 2 cucchiai, oggi l'app ti ricorda di restare vicino al target. Foglia e Colore: non esiste sforo, più ne mangi meglio è. Frutto: sopra 4 frutti dolci il giorno dopo resta a 1.",
+  },
+  {
+    titolo: "Il Granello è rolling",
+    testo: "Il Granello si conta sugli ultimi 7 giorni in continuo, non sulla settimana lunedì-domenica. Se oggi aggiungi 2 cucchiai, il contatore mostra il totale degli ultimi 7 giorni incluso oggi. Il - riduce solo il contributo di oggi.",
+  },
+  {
+    titolo: "I flag micronutrizionali",
+    testo: "4 flag sotto il Granello. Si tappano quando consumi una fonte sufficiente. Se li salti troppo a lungo l'app ti avvisa.\n\n🍋 Vitamina C: kiwi, agrumi, fragole, peperoni crudi. Avviso dopo 3 giorni. Fondamentale nello stesso pasto dei legumi: moltiplica per 3-4x l'assorbimento del ferro vegetale. Un limone sulla zuppa di lenticchie vale più di un integratore.\n🌿 Omega-3: semi di lino macinati, chia, noci, alghe. Avviso dopo 4 giorni. L'olio di microalghe copre EPA e DHA direttamente.\n🦴 Calcio: 1 fonte primaria al giorno (latte di soia o avena addizionato, acqua calcica ≥250mg/L) + fonti complementari (rucola, tahin, mandorle, broccoli abbondanti). Avviso dopo 4 giorni. Spinaci e biete NON contano: gli ossalati bloccano l'assorbimento.\n💊 B12: 1 compressa da 1000µg 2 volte a settimana, oppure 1 compressa da 2000-2500µg una volta a settimana. Avviso dopo 8 giorni.",
+  },
+  {
+    titolo: "Lo storico",
+    testo: "Il bottone calendario mostra gli ultimi 14 giorni con barra di completamento (verde ≥85%, giallo ≥60%, rosso sotto). Tocca un giorno passato per modificarlo retroattivamente.",
+  },
+  {
+    titolo: "Il prontuario",
+    testo: "Il bottone libro apre il prontuario con ricerca: scrivi un alimento per sapere in quale tassello va e quanto vale. Le sezioni del flag 🦴 Calcio, 🌿 Omega-3 e 🍋 Vitamina C listano le fonti specifiche con i valori nutrizionali.",
+  },
+  {
+    titolo: "I dati sono tuoi",
+    testo: "Tutto è salvato localmente nel browser del tuo telefono. Non c'è server, non c'è login, non si sincronizza tra dispositivi. Se cancelli i dati del sito dalle impostazioni del browser, lo storico viene perso.",
+  },
+];
+
+// ===== data/flags.js =====
+// data/flags.js
+// Tracker opzionali di micronutrienti (FLAGS).
+// Sole costanti: nessun React, nessuna dipendenza.
+
+const FLAGS = [
+  {
+    id: "vitc",
+    label: "Vit. C",
+    emoji: "🍋",
+    fullLabel: "Vitamina C",
+    tasselloId: null,
+    warnAfterDays: 3,
+    alertAfterDays: 5,
+    maxStreakDays: null,
+    dose: "1 fonte ricca nello stesso pasto dei legumi: mezzo peperone crudo, 1 kiwi, 1 arancia, o una manciata di fragole. Il timing conta: vicino al ferro vegetale moltiplica l'assorbimento.",
+    sources: "Peperone crudo (rosso o giallo): metà peperone = 150mg+ vitamina C, il top assoluto. Kiwi: 1 frutto = 70-90mg. Agrumi (arancia, limone, pompelmo): 1 frutto medio. Fragole: manciata. Broccoli crudi o poco cotti. Prezzemolo fresco abbondante. La cottura distrugge fino al 50% della vit. C: meglio crudi o appena scottati. Ideale: aggiungi limone sulla zuppa di lenticchie, peperone crudo a fianco dei ceci, kiwi a fine pasto con legumi.",
+    why: "Moltiplica per 3-4 l'assorbimento del ferro vegetale (legumi, cereali integrali, verdure). La sinergia funziona solo se la vitamina C è nello stesso pasto del ferro, non in un pasto diverso. Con ferritina bassa-normale come la tua, questo è uno dei gesti nutrizionali più efficaci: un limone sulla zuppa di lenticchie vale più di un integratore di ferro.",
+  },
+  {
+    id: "omega3",
+    label: "Omega-3",
+    emoji: "🌿",
+    fullLabel: "Omega-3 vegetali",
+    tasselloId: null,
+    warnAfterDays: 4,
+    alertAfterDays: 6,
+    maxStreakDays: 7,
+    dose: "5ml di olio di microalghe (1 cucchiaino) — oppure 1 cucchiaio di semi di lino macinati",
+    sources: "olio di microalghe nu3 o simile: 5ml/die (579mg EPA + 1158mg DHA). In alternativa: semi di lino macinati 1 cucchiaio/die, semi di chia 1 cucchiaio, noci 4-5. Le alghe danno EPA/DHA diretti (forme attive), semi e noci danno ALA (precursore, conversione limitata).",
+    why: "EPA e DHA da microalghe abbassano i trigliceridi (documentato clinicamente). Prendilo con un pasto che contiene altri grassi per massimizzare l'assorbimento. L'olio va conservato in frigo e consumato entro 6 settimane dall'apertura.",
+  },
+  {
+    id: "calcio",
+    label: "Calcio",
+    emoji: "🦴",
+    fullLabel: "Calcio vegetale",
+    tasselloId: null,
+    warnAfterDays: 4,
+    alertAfterDays: 7,
+    maxStreakDays: null,
+    dose: "1 fonte fortifcata ogni giorno: 1 bicchiere di latte di soia addizionato con calcio (≈300mg) oppure 500ml-1L di acqua calcica (Ferrarelle o Contrex, Ca ≥250mg/L). Rucola, mandorle e tahin completano ma non bastano da soli.",
+    sources: "Latte di soia fortificato: 200ml = ~240mg Ca (controlla etichetta: Ca ≥120mg/100ml, es. Alpro, Joya). Vale anche 0,5 Forza se proteico. Acqua calcica: Ferrarelle (365mg/L), Contrex (468mg/L), San Pellegrino (163mg/L — discreta). Con 1L di Ferrarelle prendi 365mg Ca senza mangiare nulla di speciale. Rucola: 100g = ~160mg Ca. Mandorle: 30g = ~70mg Ca. Tahin: 1 cucchiaio colmo = ~130mg Ca. Broccoli o cavolo nero cotti abbondanti: 200g+. Nota: spinaci e biete NON contano — gli ossalati bloccano l'assorbimento fino all'80-90%.",
+    why: "Senza latticini il calcio va cercato consapevolmente: le fonti vegetali singole valgono 70-160mg l'una contro un fabbisogno di ~1000mg/die. Una fonte certificata al giorno (latte di soia o acqua calcica) è l'ancora che garantisce la base; rucola, mandorle e tahin completano il resto. Lo studio EPIC-Oxford mostra +30% di rischio fratture in vegani con apporto sotto 525mg/die.",
+  },
+  {
+    id: "b12",
+    label: "B12",
+    emoji: "💊",
+    fullLabel: "Vitamina B12 settimanale",
+    tasselloId: null,
+    warnAfterDays: 8,
+    alertAfterDays: 14,
+    maxStreakDays: null,
+    dose: "1 compressa da 1000 µg di cianocobalamina 2 volte a settimana (es. lunedì e giovedì), oppure 1 compressa da 2000-2500 µg una volta a settimana. A stomaco vuoto se possibile.",
+    sources: "Cianocobalamina in compresse: la forma più studiata e affidabile. Strategia bisettimanale (2 × 1000 µg): sfrutta due volte il canale del fattore intrinseco, arrivando a ~23 µg assorbiti/settimana; copertura più uniforme. Strategia settimanale (1 × 2000-2500 µg): più semplice da ricordare, assorbimento simile grazie alla diffusione passiva a dosi elevate. Entrambe le strategie coprono il fabbisogno di 2,4 µg/die. Non usare dosi da 1000 µg una sola volta a settimana: assorbi solo ~1,5 µg/die, sotto il fabbisogno.",
+    why: "La B12 non esiste in nessun alimento vegetale non fortificato in forma attiva. È l'unico integratore non sostituibile per chi mangia vegano. La cianocobalamina è la forma più studiata e affidabile. Entrambe le strategie (2 × 1000µg o 1 × 2000-2500µg a settimana) sono coerenti con le linee guida per vegani: scegli quella che riesci a seguire con più costanza.",
+  },
+];
+
+// ===== data/spesa.js =====
+// data/spesa.js
+// Linee guida per la spesa settimanale (SPESA).
+// Sole costanti: nessun React, nessuna dipendenza.
+
+const SPESA = [
+  {
+    titolo: "Come riempire il carrello",
+    colore: "#3a2818",
+    emoji: "🛒",
+    testo: "Riempi il carrello in questo ordine, tassello per tassello. Se arrivi alla cassa con tutti e 7 i punti coperti, la settimana è a posto. Varia almeno 2-3 alimenti per ogni categoria: la varietà fa girare i micronutrienti automaticamente.",
+  },
+  {
+    titolo: "Foglia — 3-4 tipi diversi",
+    colore: "#5a7a3c",
+    emoji: "🌿",
+    testo: "Quanto: una busta o mazzo abbondante per tipo, per arrivare a circa 10 porzioni settimanali in totale.\n\nEsempi: spinaci freschi o surgelati, rucola, cicoria o indivia, cavolo nero (kale), bieta, lattuga romana, valeriana.\n\nSurgelati ok: spinaci e bieta surgelati sono equivalenti al fresco per i nutrienti e durano tutta la settimana. Comprali come riserva.",
+  },
+  {
+    titolo: "Colore — 5-6 colori diversi",
+    colore: "#c97a4d",
+    emoji: "🌈",
+    testo: "Quanto: una porzione media per ogni colore, per circa 10 porzioni settimanali totali.\n\nRosso: pomodori (freschi o pelati), peperoni rossi.\nArancio: carote, zucca, peperoni arancioni.\nVerde non-foglia: zucchine, broccoli, cavolo cappuccio, fagiolini.\nViola: melanzane, cavolo rosso, radicchio.\nBianco: finocchi, cavolfiore, sedano rapa.\n\nTip: i peperoni crudi soddisfano anche il flag Vitamina C — comprane sempre qualcuno.",
+  },
+  {
+    titolo: "Frutto — 5-7 tipi, almeno 14 pezzi",
+    colore: "#a8456e",
+    emoji: "🍎",
+    testo: "Quanto: circa 2 frutti al giorno × 7 giorni = 14 pezzi. Mescola frutti grandi (1 = 1 porzione) e piccoli (1 manciata = 1 porzione).\n\nIncludin sempre: 1 tipo ricco di vitamina C (kiwi, agrumi, fragole) per il flag 🟡 Vit. C.\n\nEsempi: mele, pere, banane, kiwi, arance o mandarini, frutti di bosco (ottimi surgelati), uva, pesche o albicocche (stagione).\n\nFrutta surgelata: ottima per frullati, stessa qualità nutrizionale del fresco.",
+  },
+  {
+    titolo: "Forza — 3-4 proteine diverse",
+    colore: "#b03832",
+    emoji: "💪",
+    testo: "Quanto: 14 porzioni settimanali da suddividere tra le fonti. 1 fonte di legumi = circa 3-4 pasti.\n\nLegumi: compra sempre 2-3 tipi diversi (lenticchie rosse veloci, ceci, fagioli neri, piselli, azuki). In scatola ok se li sciacqui bene.\n\nTofu: 1-2 blocchi da 200g a settimana. Non contare sul tofu per il calcio: quello reperibile in Italia di norma non è coagulato col calcio. Il calcio prendilo da tahin, rucola e mandorle.\n\nTempeh: 1 panetto ogni 10-14 giorni è sufficiente per la varietà.",
+  },
+  {
+    titolo: "Energia — 2-3 cereali integrali",
+    colore: "#8b6332",
+    emoji: "🌾",
+    testo: "Quanto: compra in formato da 500g-1kg, basta per 1-2 settimane.\n\nRegola: almeno 2 tipi diversi per settimana, così non mangi sempre la stessa pasta.\n\nEsempi: pasta integrale, riso integrale o basmati, farro perlato, orzo, avena (per colazione), quinoa, pane integrale di forno (o di panificio, meglio).\n\nTip: l'avena in fiocchi a colazione vale come Energia e si abbina perfettamente a Granello e Frutto — è uno dei pasti più veloci da preparare.",
+  },
+  {
+    titolo: "Oro — calorie accessorie",
+    colore: "#b88824",
+    emoji: "🫒",
+    testo: "L'Oro non è 'i grassi'. È tutto ciò che entra nel piatto ma non costruisce, non protegge e non nutre in modo diretto.\n\nCi cadono dentro: olio di condimento, formaggi, alcol, dolci, grassi di cottura. Non è da eliminare — è da misurare, perché è facile riempire il piatto di Oro senza accorgersene.\n\nLa differenza con il Granello: il Granello è grasso funzionale (acidi grassi essenziali, vitamina E, minerali). L'Oro è caloria accessoria. Stessa categoria nutrizionale di base, filosofia opposta.\n\nPer l'olio: 3 cucchiai/giorno = circa 300ml a settimana. Una bottiglia da 750ml dura 2-3 settimane. Compra di qualità: oli di frantoio con anno del raccolto — la differenza nei polifenoli è reale.",
+  },
+  {
+    titolo: "Granello — noci e semi",
+    colore: "#6b8a8a",
+    emoji: "🌰",
+    testo: "Quanto: 7 cucchiai a settimana. Una confezione da 150-200g dura 2-3 settimane.\n\nRuota tra fonti diverse:\n· Semi di lino: macina al momento o compra già macinati (frigo). 🟡 Omega-3 automatico.\n· Semi di chia: in frigo ammollati, su yogurt o porridge. 🟡 Omega-3.\n· Noci: 4-5 noci = 1 porzione. 🟡 Omega-3.\n· Mandorle: buona fonte di calcio e vit. E. Complemento per il flag 🦴.\n· Tahin: pasta di sesamo, ottimo su verdure o come condimento. 🟡 Calcio (complemento).\n· Semi di zucca: ricchi di zinco e magnesio.\n· Noci del Brasile: fonte eccezionale di selenio. 1-2 noci al giorno bastano — non superare.",
+  },
+  {
+    titolo: "🟡 Checklist flag settimanale",
+    colore: "#b88824",
+    emoji: "🟡",
+    testo: "Prima di chiudere la spesa, verifica:\n\n✓ Vitamina C: hai kiwi, agrumi o fragole tra i frutti? Hai peperoni da mangiare crudi vicino ai pasti con legumi?\n\n✓ Omega-3: hai semi di lino o chia? Hai noci? Hai alghe (nori/wakame) in dispensa?\n\n✓ Calcio: hai latte di soia o avena addizionato con calcio (Ca ≥120mg/100ml in etichetta)? Oppure bevi acqua calcica (Ferrarelle, Contrex)? Queste sono le fonti primarie — tahin, rucola e mandorle completano ma da soli non bastano.\n\nSe sì a tutto, i tre flag possono andare verdi questa settimana senza pensarci più.",
+  },
+  {
+    titolo: "Dispensa permanente (rinnova quando finisce)",
+    colore: "#3a2818",
+    emoji: "📦",
+    testo: "Questi durano mesi e non devi ricomprarli ogni settimana:\n\nLegumi secchi: lenticchie, ceci, fagioli in pacco da 500g.\nCereali: avena, quinoa, riso integrale.\nConserve: pelati, passata, ceci/fagioli in scatola di riserva.\nSemi: lino (macinato e conservato in frigo), chia, zucca, girasole.\nFrutta secca: noci, mandorle.\nTahin: vasetto da 250-300g.\nOlio EVO: almeno una bottiglia di scorta.\nAlghe: nori in fogli, spirulina in polvere.\nAcqua calcica: se la bevi, prendila con Ca ≥250 mg/L.",
+  },
+];
+
+// ===== logic/dates.js =====
+// logic/dates.js
+// Funzioni pure su date e finestra rolling. Nessun React.
+// todayKey, rollingGranello, dayLabel, daysAgoKey, dateKeyDaysBefore.
+
+function todayKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Returns total granello consumed in the last 7 days (rolling window, inclusive of today)
+function rollingGranello(daysData, todayKey) {
+  let total = 0;
+  for (let i = 0; i <= 6; i++) {
+    const key = i === 0 ? todayKey : dateKeyDaysBefore(todayKey, i);
+    const day = daysData[key];
+    if (day && day.granello) total += day.granello;
+  }
+  return Math.round(total * 10) / 10;
+}
+
+function dayLabel(dateStr) {
+  const d = new Date(dateStr + "T12:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(d);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Oggi";
+  if (diffDays === -1) return "Ieri";
+  if (diffDays === 1) return "Domani";
+  const dayNames = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"];
+  return `${dayNames[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
+}
+
+function daysAgoKey(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function dateKeyDaysBefore(dateKey, n) {
+  const d = new Date(dateKey + "T12:00:00");
+  d.setDate(d.getDate() - n);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// ===== logic/compensation.js =====
+// logic/compensation.js
+// Motore di compensazione degli sforamenti. Funzioni pure, nessun React.
+
+// ============================================================
+// COMPENSATION LOGIC
+// ============================================================
+//
+// Strategy:
+// For each tassello that has a max/target rule, we walk backward from the
+// target day looking at each previous day. For every day where the user
+// exceeded the target, we generate a "debt" that is spread over N days
+// following that overflow. The spread (days and amount per day) is
+// determined by the rules from the "Metodo delle parti" poster.
+//
+// As we walk forward through days after the overflow, we subtract the
+// daily compensation if and only if the user actually reduced consumption
+// on those days. If on a subsequent day the user also overflowed, that
+// generates additional debt.
+//
+// We return the net adjustment that should apply to the target day, in
+// the form of an object { tasselloId: { delta, reason, sourceDate } }.
+
+function computeCompensation(daysData, targetDateKey) {
+  // Look back at most LOOKBACK_DAYS days to find recent overflows
+  const LOOKBACK_DAYS = 5;
+
+  const adjustments = {};
+
+  // Energia: if exceeded (>3), spread -0.5/day over next 2 days
+  computeForTassello(
+    daysData,
+    targetDateKey,
+    LOOKBACK_DAYS,
+    {
+      id: "energia",
+      cap: 3,
+      perDayReduction: 0.5,
+      spreadDays: 2,
+    },
+    adjustments
+  );
+
+  // Forza: if exceeded (>2.5), spread -0.5 over 1 day (next day only),
+  // but never push target below 1.5
+  computeForTassello(
+    daysData,
+    targetDateKey,
+    LOOKBACK_DAYS,
+    {
+      id: "forza",
+      cap: 2.5,
+      perDayReduction: 0.5,
+      spreadDays: 1,
+      floor: 1.5,
+    },
+    adjustments
+  );
+
+  // Oro: if exceeded (>5), reduce 0.5 over 2 days, floor at 1
+  computeForTassello(
+    daysData,
+    targetDateKey,
+    LOOKBACK_DAYS,
+    {
+      id: "oro",
+      cap: 5,
+      perDayReduction: 0.5,
+      spreadDays: 2,
+      floor: 1,
+    },
+    adjustments
+  );
+
+  // Frutto: if exceeded (>4 sweet), reduce 1 unit next day, floor 1
+  computeForTassello(
+    daysData,
+    targetDateKey,
+    LOOKBACK_DAYS,
+    {
+      id: "frutto",
+      cap: 4,
+      perDayReduction: 1,
+      spreadDays: 1,
+      floor: 1,
+    },
+    adjustments
+  );
+
+  return adjustments;
+}
+
+// Helper: walks days from oldest to most-recent within the window
+// and accumulates the active debt for a given tassello, then returns
+// the residual adjustment that applies to targetDateKey
+function computeForTassello(daysData, targetDateKey, lookbackDays, rule, adjustments) {
+  // Build the sequence of date keys from lookbackDays ago up to (but excluding)
+  // the target day
+  const sequence = [];
+  for (let i = lookbackDays; i >= 1; i--) {
+    sequence.push(dateKeyDaysBefore(targetDateKey, i));
+  }
+  // sequence is now [oldest, ..., yesterday]
+
+  // Walk through and accumulate debt
+  // debt = how many parti the user still owes back
+  let debt = 0;
+  let sourceDates = [];
+
+  for (const dayKey of sequence) {
+    const day = daysData[dayKey];
+    const consumed = day ? (day[rule.id] || 0) : null;
+
+    if (consumed != null && consumed > rule.cap) {
+      // User overflowed this day. Add to debt.
+      const overflow = consumed - rule.cap;
+      debt += overflow;
+      sourceDates.push(dayKey);
+    } else if (debt > 0 && consumed != null) {
+      // User had a normal day. If they consumed below the cap, they "paid" debt.
+      // We measure payment as how much under the cap they went, but no more than
+      // the per-day reduction allowed.
+      const wouldOweToday = rule.perDayReduction;
+      const actualReduction = Math.max(0, rule.cap - consumed);
+      const paid = Math.min(wouldOweToday, actualReduction, debt);
+      debt -= paid;
+    }
+    // If no data for that day, we don't change debt (we don't know what happened)
+  }
+
+  if (debt > 0.001) {
+    // There's still residual debt to apply to the target day
+    // The reduction we apply today is min(perDayReduction, remaining debt)
+    const reduction = Math.min(rule.perDayReduction, debt);
+    adjustments[rule.id] = {
+      delta: -reduction,
+      reason: "rientro da sfori dei giorni scorsi",
+      sourceDates: sourceDates,
+      remainingDebt: debt,
+    };
+  }
+}
+
+// ===== logic/flags-engine.js =====
+// logic/flags-engine.js
+// Calcolo dello stato dei flag (daysSince, streak, status). Pura, nessun React.
+
+// ============================================================
+// FLAGS STATE ENGINE
+// ============================================================
+// Returns for each flag: { daysSince, streak, status }
+// status: "ok" | "warn" | "alert" | "streak_max"
+
+function computeFlagStates(flagsData, targetDateKey) {
+  const result = {};
+  FLAGS.forEach((flag) => {
+    const tappedToday = !!(flagsData[targetDateKey] && flagsData[targetDateKey][flag.id]);
+
+    // daysSince: 0 se tappato oggi, altrimenti giorni dall'ultimo tap (max 31)
+    let daysSince = 0;
+    if (!tappedToday) {
+      daysSince = 31;
+      for (let i = 1; i <= 30; i++) {
+        if (flagsData[dateKeyDaysBefore(targetDateKey, i)]?.[flag.id]) {
+          daysSince = i;
+          break;
+        }
+      }
+    }
+
+    // streak: giorni consecutivi tappati fino a ieri (solo per maxStreakDays)
+    let streak = 0;
+    if (flag.maxStreakDays) {
+      for (let i = 1; i <= 30; i++) {
+        if (flagsData[dateKeyDaysBefore(targetDateKey, i)]?.[flag.id]) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    let status = "ok";
+    if (tappedToday) {
+      if (flag.maxStreakDays && streak >= flag.maxStreakDays) status = "streak_max";
+    } else {
+      if (daysSince >= flag.alertAfterDays) status = "alert";
+      else if (daysSince >= flag.warnAfterDays) status = "warn";
+    }
+
+    result[flag.id] = { daysSince, streak, status, tappedToday };
+  });
+  return result;
+}
+
+// ===== logic/suggestions.js =====
+// logic/suggestions.js
+// Rilevamento deficit su finestra (daysBelow) e generazione tip (suggestions).
+// Funzioni pure, nessun React.
+
+// ============================================================
+// SUGGESTIONS ENGINE
+// ============================================================
+
+// ============================================================
+// WINDOW-BASED DEFICIT DETECTION
+// ============================================================
+// Returns how many of the last N days (excluding today) a tassello was below target.
+// Used to decide urgency: if below target for several days in a row, it's a real problem.
+
+function daysBelow(daysData, tasselloId, target, windowDays, todayKey) {
+  let count = 0;
+  let daysWithData = 0;
+  for (let i = 1; i <= windowDays; i++) {
+    const key = dateKeyDaysBefore(todayKey, i);
+    const day = daysData[key];
+    if (!day) continue;
+    // Un giorno conta come "con dati" solo se almeno un tassello ha valore > 0
+    const hasRealData = Object.values(day).some((v) => v > 0);
+    if (!hasRealData) continue;
+    daysWithData++;
+    const consumed = day[tasselloId] || 0;
+    if (consumed < target) count++;
+  }
+  if (daysWithData === 0) return -1; // sentinel: nessun dato storico reale
+  return count;
+}
+
+function suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags) {
+  const tips = [];
+
+  TASSELLI.forEach((t) => {
+    const consumed = today[t.id] || 0;
+    const target = adjustedTargets[t.id] ?? t.target;
+
+    if (t.isMin) {
+      // Foglia, Colore — finestra 3 giorni
+      // Warning urgente solo se sotto per 3 giorni consecutivi incluso oggi
+      if (consumed < target) {
+        const missing = +(target - consumed).toFixed(1);
+        const prevDaysBelow = daysBelow(daysData, t.id, t.target, 2, currentDate);
+        // -1 = nessun dato storico → non mostrare badge streak
+        const urgency = prevDaysBelow < 0 ? null : prevDaysBelow >= 2 ? "high" : prevDaysBelow === 1 ? "med" : "low";
+        const suffix = urgency === "low"
+          ? " (1° giorno consecutivo)"
+          : urgency === "med"
+          ? " (2° giorno consecutivo)"
+          : " (3° giorno consecutivo — priorità alta)";
+        tips.push({
+          type: "needed",
+          tassello: t,
+          message: `Aggiungi ${missing} ${t.unit} di ${t.label}${urgency ? suffix : ""}`,
+          urgency: urgency || "low",
+        });
+      }
+    } else if (t.isMax) {
+      // Energia — tetto (max 3) con floor nutrizionale morbido (min 1)
+      if (consumed > target) {
+        tips.push({
+          type: "exceeded",
+          tassello: t,
+          message: `${t.label} sopra il tetto (${consumed} su ${target})`,
+          urgency: "high",
+        });
+      } else if (t.softMin != null && consumed < t.softMin) {
+        // Floor: sotto 1 parte → avviso morbido con finestra 3 giorni (stessa logica isMin)
+        const missing = +(t.softMin - consumed).toFixed(1);
+        const prevDaysBelow = daysBelow(daysData, t.id, t.softMin, 2, currentDate);
+        const urgency = prevDaysBelow < 0 ? null : prevDaysBelow >= 2 ? "high" : prevDaysBelow === 1 ? "med" : "low";
+        const suffix = urgency === "low"
+          ? " (1° giorno consecutivo)"
+          : urgency === "med"
+          ? " (2° giorno consecutivo)"
+          : " (3° giorno consecutivo — riserve di glicogeno a rischio)";
+        tips.push({
+          type: "needed",
+          tassello: t,
+          message: `${t.label} sotto il minimo funzionale${urgency ? suffix : ""} — aggiungi almeno 1 parte`,
+          urgency: urgency || "low",
+        });
+      } else if (consumed < target - 0.5) {
+        tips.push({
+          type: "room",
+          tassello: t,
+          message: `Hai ancora ${(target - consumed).toFixed(1)} ${t.unit} di ${t.label} disponibili`,
+          urgency: "low",
+        });
+      }
+    } else if (t.id === "forza") {
+      // Forza — finestra 2 giorni, non si scende mai
+      if (consumed < target) {
+        const missing = +(target - consumed).toFixed(1);
+        const prevDaysBelow = daysBelow(daysData, t.id, t.target, 1, currentDate);
+        const urgency = prevDaysBelow < 0 ? null : prevDaysBelow >= 1 ? "high" : "med";
+        const suffix = urgency === "high"
+          ? " (2° giorno consecutivo — rischio massa muscolare)"
+          : " (1° giorno consecutivo)";
+        tips.push({
+          type: "needed",
+          tassello: t,
+          message: `Manca ${missing} ${t.unit} di ${t.label}${urgency ? suffix : ""}`,
+          urgency: urgency || "med",
+        });
+      } else if (t.softMax && consumed > t.softMax) {
+        tips.push({
+          type: "exceeded",
+          tassello: t,
+          message: `${t.label} ha superato il limite massimo`,
+          urgency: "high",
+        });
+      }
+    } else if (t.id === "frutto") {
+      // Frutto — finestra 3 giorni come Foglia/Colore
+      if (consumed < target) {
+        const missing = +(target - consumed).toFixed(1);
+        const prevDaysBelow = daysBelow(daysData, t.id, t.target, 2, currentDate);
+        const urgency = prevDaysBelow < 0 ? null : prevDaysBelow >= 2 ? "high" : prevDaysBelow === 1 ? "med" : "low";
+        const suffix = !urgency || urgency === "low"
+          ? " (1° giorno consecutivo)"
+          : urgency === "med"
+          ? " (2° giorno consecutivo)"
+          : " (3° giorno — priorità alta)";
+        tips.push({
+          type: "needed",
+          tassello: t,
+          message: `Manca ${missing} ${t.unit} di ${t.label}${urgency ? suffix : ""}`,
+          urgency: urgency || "low",
+        });
+      } else if (t.softMax && consumed > t.softMax) {
+        tips.push({
+          type: "exceeded",
+          tassello: t,
+          message: `${t.label} ha superato il limite massimo`,
+          urgency: "high",
+        });
+      }
+      } else if (t.id === "oro") {
+      // Oro — softMin a 1 cucchiaio, softMax a 5
+      // Controlla se ieri ha sforato il target base (> 2), indipendente da adjustedTargets
+      const ORO_TARGET_BASE = 2;
+      const ieriKey = dateKeyDaysBefore(currentDate, 1);
+      const ieriDay = daysData[ieriKey];
+      const ieriOro = ieriDay ? (ieriDay.oro || 0) : 0;
+      const ieriHasData = ieriDay && Object.values(ieriDay).some(v => v > 0);
+      const ieriSforato = ieriHasData && ieriOro > ORO_TARGET_BASE;
+
+      if (consumed < target) {
+        const missing = +(target - consumed).toFixed(1);
+        const belowMin = consumed < (t.softMin || 0);
+        tips.push({
+          type: "needed",
+          tassello: t,
+          message: belowMin
+            ? `Manca ${missing} ${t.unit} di ${t.label} — sotto il minimo funzionale (1 cucchiaio)`
+            : ieriSforato
+            ? `Manca ${missing} ${t.unit} di ${t.label} — ieri hai sforato, oggi prova a restare sui 2`
+            : `Manca ${missing} ${t.unit} di ${t.label}`,
+          urgency: belowMin ? "high" : "med",
+        });
+      } else if (consumed <= t.softMax) {
+        // Tra target e softMax: se ieri ha sforato, mostra promemoria leggero
+        if (ieriSforato) {
+          tips.push({
+            type: "info",
+            tassello: t,
+            message: `Oro ok — ieri hai sforato, cerca di restare vicino ai 2 oggi`,
+            urgency: "low",
+          });
+        }
+      } else if (t.softMax && consumed > t.softMax) {
+        tips.push({
+          type: "exceeded",
+          tassello: t,
+          message: `${t.label} ha superato il limite massimo`,
+          urgency: "high",
+        });
+      }
+    } else {
+      // Tutti gli altri — comportamento standard
+      if (consumed < target) {
+        const missing = +(target - consumed).toFixed(1);
+        tips.push({
+          type: "needed",
+          tassello: t,
+          message: `Manca ${missing} ${t.unit} di ${t.label}`,
+          urgency: missing > 1 ? "high" : "med",
+        });
+      } else if (t.softMax && consumed > t.softMax) {
+        tips.push({
+          type: "exceeded",
+          tassello: t,
+          message: `${t.label} ha superato il limite massimo`,
+          urgency: "high",
+        });
+      }
+    }
+  });
+
+  // A3 — Suggerimento contestuale ferro + vitamina C
+  // Se oggi c'è almeno 0,5 Forza (legumi/tofu) e il flag vitc non è stato tappato,
+  // aggiungi un tip informativo che ricorda la sinergia ferro+C nello stesso pasto.
+  const forzaOggi = today["forza"] || 0;
+  const vitcTappata = todayFlags ? !!todayFlags["vitc"] : false;
+  if (forzaOggi >= 0.5 && !vitcTappata) {
+    tips.push({
+      type: "info",
+      tassello: FLAGS.find((f) => f.id === "vitc") || { id: "vitc", label: "Vit. C", emoji: "🍋" },
+      message: "Hai mangiato legumi o tofu: aggiungi vitamina C nello stesso pasto per moltiplicare l'assorbimento del ferro (limone, peperone crudo, kiwi)",
+      urgency: "low",
+    });
+  }
+
+  // Granello rolling softMax check
+  if (granelloRolling !== undefined && GRANELLO.softMax && granelloRolling > GRANELLO.softMax) {
+    tips.push({
+      type: "exceeded",
+      tassello: GRANELLO,
+      message: `Granello oltre il tetto (${granelloRolling} su ${GRANELLO.softMax} cucchiai/7gg) — troppi grassi nella settimana`,
+      urgency: "high",
+    });
+  }
+
+  return tips.sort((a, b) => {
+    const order = { high: 0, med: 1, low: 2 };
+    return order[a.urgency] - order[b.urgency];
+  });
+}
+
+// ===== logic/parse-item.js =====
+// logic/parse-item.js
+// Parsing del valore testuale del prontuario in tasselli + flag. Pura, nessun React.
+
+// Parses a prontuario value string like "1 Forza + 0,5 Oro + 🟡 Omega-3"
+// into { tasselli: { forza: 1, oro: 0.5 }, flags: ["omega3"] }
+function parseItemValue(valueStr) {
+  const tasselli = {};
+  const flags = [];
+  if (!valueStr) return { tasselli, flags };
+
+  const tasselloMap = {
+    energia: "energia", forza: "forza", foglia: "foglia",
+    colore: "colore", frutto: "frutto", oro: "oro", granello: "granello",
+  };
+  const flagMap = { "omega-3": "omega3", "vit. c": "vitc", "calcio": "calcio" };
+
+  const parts = valueStr.split("+").map((s) => s.trim());
+
+  for (const part of parts) {
+    const lower = part.toLowerCase();
+
+    // Skip "0 tasselli" and standalone "jolly"
+    if (lower.startsWith("0 tasselli") || lower === "jolly") continue;
+
+    // Detect flags (🟡 ...)
+    let isFlagPart = false;
+    for (const [key, id] of Object.entries(flagMap)) {
+      if (lower.includes(key)) { flags.push(id); isFlagPart = true; break; }
+    }
+    if (isFlagPart) continue;
+
+    // Extract leading number + tassello name
+    // Handles: "1 Energia", "0,5 Forza", "1,5 Oro", "0,5 Colore (jolly)"
+    const match = part.match(/^([\d,]+)\s+([A-Za-z]+)/i);
+    if (match) {
+      const amount = parseFloat(match[1].replace(",", "."));
+      const name = match[2].toLowerCase();
+      if (tasselloMap[name] && amount > 0) {
+        tasselli[tasselloMap[name]] = (tasselli[tasselloMap[name]] || 0) + amount;
+      }
+    }
+  }
+
+  return { tasselli, flags };
+}
+
+// ===== ui/SlidePanel.js =====
+// ui/SlidePanel.js - overlay slide-up riusabile, base dei panels/
+
+// ============================================================
+// SLIDE-UP PANEL — shared shell for Pilastri and Prontuario
+// ============================================================
+
+function SlidePanel({ title, subtitle, onClose, children }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(58, 40, 24, 0.55)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "flex-end",
+        zIndex: 100,
+        animation: "fadeIn 200ms ease-out",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "440px",
+          margin: "0 auto",
+          background: "var(--bg-page)",
+          borderRadius: "20px 20px 0 0",
+          padding: "20px",
+          maxHeight: "85vh",
+          overflowY: "auto",
+          animation: "slideUp 280ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: subtitle ? "4px" : "16px",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "20px",
+              fontStyle: "italic",
+              color: "var(--ink-strong)",
+            }}
+          >
+            {title}
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: "50%",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--ink-soft)",
+            }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        {subtitle && (
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--ink-soft)",
+              marginBottom: "14px",
+              fontStyle: "italic",
+            }}
+          >
+            {subtitle}
+          </div>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+
+// ===== components/FlagChip.js =====
+// components/FlagChip.js - FlagChip (badge inline) + FlagsStandalone (Omega-3, Calcio)
+
+// ============================================================
+// FLAG COMPONENTS
+// ============================================================
+
+// FlagChip: piccolo badge tappabile inline (usato sul tassello Frutto)
+function FlagChip({ flag, state, onToggle }) {
+  const { tappedToday, status } = state;
+
+  const bgColor = tappedToday
+    ? "#5a7a3c"
+    : status === "alert"
+    ? "#b03832"
+    : status === "warn"
+    ? "#b88824"
+    : status === "streak_max"
+    ? "#6b8a8a"
+    : "rgba(138,90,44,0.12)";
+
+  const textColor = tappedToday || status === "alert" || status === "warn"
+    ? "white"
+    : "var(--ink-soft)";
+
+  const label = tappedToday
+    ? `${flag.emoji} ${flag.label} ✓`
+    : status === "alert"
+    ? `${flag.emoji} ${flag.label} !`
+    : status === "warn"
+    ? `${flag.emoji} ${flag.label} ·`
+    : status === "streak_max"
+    ? `${flag.emoji} ${flag.label} ~`
+    : `${flag.emoji} ${flag.label}`;
+
+  return (
+    <button
+      onClick={onToggle}
+      title={
+        status === "streak_max"
+          ? `${flag.fullLabel}: sei coperto per diversi giorni, puoi variare`
+          : status === "alert"
+          ? `${flag.fullLabel}: ${state.daysSince} giorni senza — considera di includerlo`
+          : status === "warn"
+          ? `${flag.fullLabel}: ${state.daysSince} giorni senza`
+          : tappedToday
+          ? `${flag.fullLabel}: tappato oggi`
+          : flag.fullLabel
+      }
+      style={{
+        padding: "3px 8px",
+        borderRadius: "20px",
+        border: "none",
+        background: bgColor,
+        color: textColor,
+        fontSize: "10px",
+        fontFamily: "var(--font-body)",
+        fontWeight: 600,
+        cursor: "pointer",
+        flexShrink: 0,
+        transition: "background 200ms ease",
+        letterSpacing: "0.02em",
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// FlagsStandalone: due flag (Omega-3 e Calcio) con riga espansa, sotto Granello
+function FlagsStandalone({ flagStates, onToggle }) {
+  const standaloneFlags = FLAGS.filter((f) => f.tasselloId === null);
+
+  return (
+    <div style={{ marginTop: "8px" }}>
+      {standaloneFlags.map((flag) => {
+        const state = flagStates[flag.id] || { tappedToday: false, status: "ok", daysSince: 0 };
+        const { tappedToday, status, daysSince } = state;
+
+        const rowBg = tappedToday
+          ? "rgba(90, 122, 60, 0.1)"
+          : status === "alert"
+          ? "rgba(176, 56, 50, 0.08)"
+          : status === "warn"
+          ? "rgba(184, 136, 36, 0.08)"
+          : "var(--bg-card)";
+
+        const dotColor = tappedToday
+          ? "#5a7a3c"
+          : status === "alert"
+          ? "#b03832"
+          : status === "warn"
+          ? "#b88824"
+          : status === "streak_max"
+          ? "#6b8a8a"
+          : flag.id === "omega3" ? "#5a7a3c" : "#6b8a8a";
+
+        const statusText = tappedToday
+          ? "ok oggi"
+          : status === "alert"
+          ? `${daysSince} giorni senza`
+          : status === "warn"
+          ? `${daysSince} giorni senza`
+          : status === "streak_max"
+          ? "coperto, puoi variare"
+          : "non segnato oggi";
+
+        return (
+          <div
+            key={flag.id}
+            style={{
+              background: rowBg,
+              border: "1px solid rgba(138, 90, 44, 0.12)",
+              borderRadius: "10px",
+              padding: "10px 14px",
+              marginBottom: "8px",
+              transition: "background 200ms ease",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div
+                style={{
+                  width: "10px",
+                  height: "10px",
+                  borderRadius: "50%",
+                  background: dotColor,
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink-strong)" }}>
+                  {flag.emoji} {flag.fullLabel}
+                </div>
+                <div style={{ fontSize: "10px", color: "var(--ink-soft)", fontStyle: "italic", marginTop: "1px" }}>
+                  {statusText}
+                </div>
+                {flag.dose && (
+                  <div style={{ fontSize: "10px", color: "var(--ink)", marginTop: "3px", lineHeight: 1.4 }}>
+                    {flag.dose}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => onToggle(flag.id)}
+                style={{
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "50%",
+                  border: tappedToday
+                    ? "none"
+                    : "1px solid rgba(138, 90, 44, 0.3)",
+                  background: tappedToday ? "#5a7a3c" : "rgba(255,255,255,0.6)",
+                  color: tappedToday ? "white" : dotColor,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  transition: "all 200ms ease",
+                }}
+                aria-label={tappedToday ? `Rimuovi flag ${flag.fullLabel}` : `Segna ${flag.fullLabel}`}
+              >
+                {tappedToday ? <Check size={16} strokeWidth={2.5} /> : <Plus size={16} strokeWidth={2.5} />}
+              </button>
+            </div>
+            {(status === "warn" || status === "alert") && !tappedToday && (
+              <div
+                style={{
+                  marginTop: "8px",
+                  paddingTop: "8px",
+                  borderTop: "1px dashed rgba(138, 90, 44, 0.15)",
+                  fontSize: "10.5px",
+                  color: "var(--ink-soft)",
+                  fontStyle: "italic",
+                  lineHeight: 1.4,
+                }}
+              >
+                {flag.dose && (
+                  <div style={{ marginBottom: "4px", color: "var(--ink)", fontWeight: 600, fontStyle: "normal" }}>
+                    📋 {flag.dose}
+                  </div>
+                )}
+                Fonti: {flag.sources}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+// ===== components/Counter.js =====
+// components/Counter.js - riga di un tassello, l'interazione principale (+/-)
+
+// ============================================================
+// COUNTER (one tassello row) — the main interaction
+// ============================================================
+
+function Counter({ tassello, value, adjustedTarget, onChange, flagChip, streakWarning }) {
+  const t = tassello;
+  const target = adjustedTarget ?? t.target;
+  const isAdjusted = adjustedTarget != null && adjustedTarget !== t.target;
+
+  let statusColor = t.color;
+  let statusLabel = null;
+  let progress = 0;
+
+  if (t.isMin) {
+    progress = Math.min(value / target, 1);
+    if (value >= target) {
+      statusLabel = "ok";
+    } else {
+      statusLabel = `manca ${(target - value).toFixed(1)}`;
+    }
+  } else if (t.isMax) {
+    progress = Math.min(value / target, 1);
+    if (value > target) {
+      statusLabel = `+${(value - target).toFixed(1)} sopra`;
+      statusColor = "#b03832";
+    } else if (value >= target - 0.5) {
+      statusLabel = "vicino al tetto";
+    } else {
+      statusLabel = `${(target - value).toFixed(1)} disponibili`;
+    }
+  } else {
+    progress = Math.min(value / target, 1);
+    if (value >= target) {
+      if (t.softMax && value > t.softMax) {
+        statusLabel = "sopra il max";
+        statusColor = "#b03832";
+      } else {
+        statusLabel = "ok";
+      }
+    } else {
+      statusLabel = `manca ${target - value}`;
+    }
+  }
+
+  const dec = () => onChange(Math.max(0, value - t.step));
+  const inc = () => onChange(value + t.step);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  return (
+    <div
+      style={{
+        background: "var(--bg-card)",
+        borderRadius: "12px",
+        padding: "14px 16px",
+        marginBottom: "10px",
+        border: "1px solid rgba(138, 90, 44, 0.12)",
+        position: "relative",
+      }}
+    >
+      {/* Progress bar in background */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: `${progress * 100}%`,
+          background: t.bg,
+          borderRadius: "12px 0 0 12px",
+          opacity: 0.6,
+          transition: "width 220ms ease-out",
+        }}
+      />
+      <div style={{ position: "relative", display: "flex", alignItems: "center", gap: "12px" }}>
+        {/* Color dot */}
+        <div
+          style={{
+            width: "10px",
+            height: "10px",
+            borderRadius: "50%",
+            background: t.color,
+            flexShrink: 0,
+          }}
+        />
+        {/* Label + Controls in one row */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "16px",
+                fontWeight: 700,
+                fontStyle: "italic",
+                color: "var(--ink-strong)",
+              }}
+            >
+              {t.label}
+            </span>
+            {t.help && (
+              <button
+                onClick={() => setHelpOpen(h => !h)}
+                aria-label="Cosa conta in questo tassello"
+                style={{
+                  width: "17px",
+                  height: "17px",
+                  borderRadius: "50%",
+                  border: `1px solid ${helpOpen ? t.color : "rgba(138,90,44,0.25)"}`,
+                  background: helpOpen ? t.bg : "rgba(255,255,255,0.5)",
+                  color: helpOpen ? t.color : "var(--ink-soft)",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  flexShrink: 0,
+                  transition: "all 150ms",
+                  padding: 0,
+                  lineHeight: 1,
+                }}
+              >
+                ?
+              </button>
+            )}
+            <span
+              style={{
+                fontSize: "10px",
+                color: "var(--ink-soft)",
+                fontStyle: "italic",
+              }}
+            >
+              {t.sub}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "20px",
+                fontWeight: 700,
+                fontStyle: "italic",
+                color: t.color,
+                lineHeight: 1,
+                minWidth: "24px",
+              }}
+            >
+              {value}
+            </span>
+            <span style={{ fontSize: "11px", color: "var(--ink-soft)" }}>
+              / {target} {t.unit}
+              {isAdjusted && (
+                <span style={{ color: "#b03832", marginLeft: "4px", fontStyle: "italic" }}>
+                  (rivisto)
+                </span>
+              )}
+            </span>
+            {statusLabel && (
+              <span
+                style={{
+                  fontSize: "10px",
+                  color: statusColor,
+                  fontStyle: "italic",
+                  fontWeight: 600,
+                }}
+              >
+                {statusLabel}
+              </span>
+            )}
+            {/* Spacer + Controls allineati a destra */}
+            <div style={{ marginLeft: "auto", display: "flex", gap: "6px", flexShrink: 0 }}>
+              <button
+                onClick={dec}
+                disabled={value === 0}
+                aria-label={`Togli ${t.step} ${t.unit}`}
+                style={{
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "50%",
+                  border: "1px solid rgba(138, 90, 44, 0.3)",
+                  background: "rgba(255,255,255,0.6)",
+                  color: value === 0 ? "#c9a878" : t.color,
+                  cursor: value === 0 ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 150ms",
+                }}
+              >
+                <Minus size={16} strokeWidth={2.5} />
+              </button>
+              <button
+                onClick={inc}
+                aria-label={`Aggiungi ${t.step} ${t.unit}`}
+                style={{
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "50%",
+                  border: "none",
+                  background: t.color,
+                  color: "white",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 150ms",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                }}
+              >
+                <Plus size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+          </div>
+          {/* Streak warning badge */}
+          {streakWarning && value < (adjustedTarget ?? tassello.target) && (
+            <div
+              style={{
+                marginTop: "5px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                background: streakWarning === "high"
+                  ? "rgba(176, 56, 50, 0.10)"
+                  : "rgba(184, 136, 36, 0.12)",
+                border: `1px solid ${
+                  streakWarning === "high" ? "rgba(176,56,50,0.3)"
+                  : "rgba(184,136,36,0.3)"
+                }`,
+                borderRadius: "20px",
+                padding: "2px 8px",
+                fontSize: "10px",
+                fontStyle: "italic",
+                color: streakWarning === "high" ? "#b03832" : "#996600",
+                fontWeight: 600,
+              }}
+            >
+              <span>{streakWarning === "high" ? "⚠" : "·"}</span>
+              <span>
+                {t.id === "forza"
+                  ? streakWarning === "high"
+                    ? "2° giorno consecutivo — rischio massa muscolare"
+                    : "1° giorno consecutivo"
+                  : streakWarning === "high"
+                    ? "3° giorno consecutivo — priorità alta"
+                    : streakWarning === "med"
+                    ? "2° giorno consecutivo"
+                    : "1° giorno consecutivo"
+                }
+              </span>
+            </div>
+          )}
+          {/* SoftMin warning per Oro */}
+          {t.id === "oro" && t.softMin && value < t.softMin && (
+            <div
+              style={{
+                marginTop: "5px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                background: "rgba(176, 56, 50, 0.10)",
+                border: "1px solid rgba(176,56,50,0.3)",
+                borderRadius: "20px",
+                padding: "2px 8px",
+                fontSize: "10px",
+                fontStyle: "italic",
+                color: "#b03832",
+                fontWeight: 600,
+              }}
+            >
+              <span>⚠</span>
+              <span>sotto il minimo — vitamine liposolubili a rischio</span>
+            </div>
+          )}
+          {flagChip && (
+            <div style={{ marginTop: "6px" }}>
+              {flagChip}
+            </div>
+          )}
+          {helpOpen && t.help && (
+            <div
+              style={{
+                marginTop: "6px",
+                paddingTop: "6px",
+                borderTop: "1px dashed rgba(138,90,44,0.15)",
+                fontSize: "11px",
+                color: "var(--ink)",
+                lineHeight: 1.55,
+                fontStyle: "italic",
+              }}
+            >
+              {t.help}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ===== components/GranelloCounter.js =====
+// components/GranelloCounter.js - contatore settimanale Granello (rolling 7gg)
+
+// ============================================================
+// GRANELLO COUNTER (weekly)
+// ============================================================
+
+function GranelloCounter({ value, granelleOggi, onChange }) {
+  // value = totale rolling 7 giorni (display)
+  // granelleOggi = granello di oggi (usato per il - che non può andare sotto 0)
+  // onChange(newValueOggi) = aggiorna solo il granello di oggi
+  const target = GRANELLO.target;
+  const progress = Math.min(value / target, 1);
+  const t = GRANELLO;
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  const missing = Math.max(0, +(target - value).toFixed(1));
+  const exceeded = GRANELLO.softMax && value > GRANELLO.softMax;
+  const status = exceeded
+    ? `oltre il tetto (max ${GRANELLO.softMax})`
+    : value >= target
+    ? "7 giorni coperti"
+    : `mancano ${missing} ${missing === 1 ? "cucchiaio" : "cucchiai"}`;
+  const statusColor = exceeded ? "#b03832" : value >= target ? "#5a7a3c" : t.color;
+
+  return (
+    <div
+      style={{
+        background: "var(--bg-card)",
+        borderRadius: "12px",
+        padding: "14px 16px",
+        border: exceeded ? "1px solid rgba(176, 56, 50, 0.4)" : "1px solid rgba(138, 90, 44, 0.12)",
+        position: "relative",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 0, top: 0, bottom: 0,
+          width: `${progress * 100}%`,
+          background: t.bg,
+          borderRadius: "12px 0 0 12px",
+          opacity: 0.6,
+        }}
+      />
+      <div style={{ position: "relative", display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: t.color, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: 700, fontStyle: "italic", color: "var(--ink-strong)" }}>
+              {t.label}
+            </span>
+            {t.help && (
+              <button
+                onClick={() => setHelpOpen(h => !h)}
+                aria-label="Cosa conta nel Granello"
+                style={{
+                  width: "17px", height: "17px", borderRadius: "50%",
+                  border: `1px solid ${helpOpen ? t.color : "rgba(138,90,44,0.25)"}`,
+                  background: helpOpen ? t.bg : "rgba(255,255,255,0.5)",
+                  color: helpOpen ? t.color : "var(--ink-soft)",
+                  cursor: "pointer", display: "inline-flex",
+                  alignItems: "center", justifyContent: "center",
+                  fontSize: "9px", fontWeight: 700, flexShrink: 0,
+                  transition: "all 150ms", padding: 0, lineHeight: 1,
+                }}
+              >
+                ?
+              </button>
+            )}
+            <span style={{ fontSize: "10px", color: "var(--ink-soft)", fontStyle: "italic" }}>
+              ultimi 7 giorni
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "2px" }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "20px", fontWeight: 700, fontStyle: "italic", color: t.color, lineHeight: 1 }}>
+              {value}
+            </span>
+            <span style={{ fontSize: "11px", color: "var(--ink-soft)" }}>
+              / {target} {t.unit}
+            </span>
+            <span style={{ fontSize: "10px", color: statusColor, marginLeft: "auto", fontStyle: "italic", fontWeight: 600 }}>
+              {status}
+            </span>
+          </div>
+          {granelleOggi > 0 && (
+            <div style={{ fontSize: "10px", color: "var(--ink-soft)", fontStyle: "italic", marginTop: "2px" }}>
+              oggi: {granelleOggi} cucchiai
+            </div>
+          )}
+          {helpOpen && t.help && (
+            <div
+              style={{
+                marginTop: "6px",
+                paddingTop: "6px",
+                borderTop: "1px dashed rgba(138,90,44,0.15)",
+                fontSize: "11px",
+                color: "var(--ink)",
+                lineHeight: 1.55,
+                fontStyle: "italic",
+              }}
+            >
+              {t.help}
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+          <button
+            onClick={() => onChange(Math.max(0, granelleOggi - 1))}
+            disabled={granelleOggi === 0}
+            style={{
+              width: "34px", height: "34px", borderRadius: "50%",
+              border: "1px solid rgba(138, 90, 44, 0.3)",
+              background: "rgba(255,255,255,0.6)",
+              color: granelleOggi === 0 ? "#c9a878" : t.color,
+              cursor: granelleOggi === 0 ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Minus size={16} strokeWidth={2.5} />
+          </button>
+          <button
+            onClick={() => onChange(granelleOggi + 1)}
+            style={{
+              width: "34px", height: "34px", borderRadius: "50%",
+              border: "none", background: t.color, color: "white",
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+            }}
+          >
+            <Plus size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ===== components/DonutChart.js =====
+// components/DonutChart.js - ciambella a 7 spicchi, uno per tassello
+
+// ============================================================
+// SUGGESTIONS PANEL
+// ============================================================
+
+// ── DonutChart: 7 spicchi, uno per tassello ──────────────────────────────────
+
+function DonutChart({ today, adjustedTargets }) {
+  const cx = 50, cy = 50, rOut = 44, rIn = 27;
+  const total = TASSELLI.length;
+  const sliceDeg = 360 / total;
+  const gapDeg = 3;
+  const startOffset = -90;
+
+  const polar = (angle, r) => ({
+    x: cx + r * Math.cos((angle * Math.PI) / 180),
+    y: cy + r * Math.sin((angle * Math.PI) / 180),
+  });
+
+  const arcPath = (startAngle, endAngle) => {
+    const s1 = polar(startAngle, rOut);
+    const e1 = polar(endAngle, rOut);
+    const s2 = polar(endAngle, rIn);
+    const e2 = polar(startAngle, rIn);
+    const large = endAngle - startAngle > 180 ? 1 : 0;
+    return [
+      `M ${s1.x.toFixed(2)} ${s1.y.toFixed(2)}`,
+      `A ${rOut} ${rOut} 0 ${large} 1 ${e1.x.toFixed(2)} ${e1.y.toFixed(2)}`,
+      `L ${s2.x.toFixed(2)} ${s2.y.toFixed(2)}`,
+      `A ${rIn} ${rIn} 0 ${large} 0 ${e2.x.toFixed(2)} ${e2.y.toFixed(2)}`,
+      "Z",
+    ].join(" ");
+  };
+
+  // Returns { progress 0-1, exceeded bool, closed bool }
+  const sliceState = (t) => {
+    const v = today[t.id] || 0;
+    const target = adjustedTargets[t.id] ?? t.target;
+
+    if (t.isMin) {
+      // Foglia, Colore: no max, più è meglio
+      const progress = Math.min(v / target, 1);
+      return { progress, exceeded: false, closed: v >= target };
+    }
+
+    if (t.isMax) {
+      // Energia: ha un tetto — chiuso solo se hai mangiato qualcosa e non hai sforato
+      if (v > target) return { progress: 1, exceeded: true, closed: false };
+      const progress = target > 0 ? v / target : 0;
+      const closed = v > 0 && v <= target;
+      return { progress, exceeded: false, closed };
+    }
+
+    // Forza, Frutto, Oro: target morbido con eventuale softMax
+    if (t.softMax && v > t.softMax) {
+      return { progress: 1, exceeded: true, closed: false };
+    }
+    const progress = Math.min(v / target, 1);
+    const closed = v >= target && (!t.softMax || v <= t.softMax);
+    return { progress, exceeded: false, closed };
+  };
+
+  const states = TASSELLI.map(sliceState);
+  const closedCount = states.filter((s) => s.closed).length;
+  const allDone = closedCount === total;
+
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      width="88"
+      height="88"
+      style={{ flexShrink: 0 }}
+      aria-label={`${closedCount} tasselli chiusi su ${total}`}
+    >
+      {TASSELLI.map((t, i) => {
+        const start = startOffset + i * sliceDeg + gapDeg / 2;
+        const end = startOffset + (i + 1) * sliceDeg - gapDeg / 2;
+        const { progress, exceeded } = states[i];
+        // Opacità: 0.13 (vuoto) → 1.0 (pieno), interpolata sul progresso
+        const opacity = 0.13 + progress * 0.87;
+        // Colore: rosso accent se sforato, colore del tassello altrimenti
+        const fill = exceeded ? "#b03832" : t.color;
+        return (
+          <path
+            key={t.id}
+            d={arcPath(start, end)}
+            fill={fill}
+            opacity={opacity}
+            style={{ transition: "opacity 280ms ease, fill 280ms ease" }}
+          />
+        );
+      })}
+      {/* Testo centrale */}
+      <text
+        x={cx}
+        y={cy - 5}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize="18"
+        fontWeight="700"
+        fontFamily="Palatino, Georgia, serif"
+        fontStyle="italic"
+        fill={allDone ? "#5a7a3c" : "#3a2818"}
+      >
+        {closedCount}
+      </text>
+      <text
+        x={cx}
+        y={cy + 9}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize="8"
+        fontFamily="Palatino, Georgia, serif"
+        fontStyle="italic"
+        fill="#8a5a2c"
+      >
+        {"/ " + total}
+      </text>
+    </svg>
+  );
+}
+
+
+// ===== components/SuggestionsPanel.js =====
+// components/SuggestionsPanel.js - suggerimenti del giorno
+
+// ── SuggestionsPanel ─────────────────────────────────────────────────────────
+
+function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags }) {
+  const tips = suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags);
+  const closedCount = TASSELLI.filter((t) => {
+    const v = today[t.id] || 0;
+    const target = adjustedTargets[t.id] ?? t.target;
+    if (t.isMin) return v >= target;
+    if (t.isMax) return v > 0 && v <= target;
+    if (t.softMax) return v >= target && v <= t.softMax;
+    return v >= target;
+  }).length;
+
+  const allDone = closedCount === TASSELLI.length;
+
+  return (
+    <div
+      style={{
+        borderRadius: "12px",
+        padding: "14px 16px",
+        marginBottom: "16px",
+        border: "1px solid rgba(176, 56, 50, 0.18)",
+        background: "linear-gradient(135deg, rgba(176, 56, 50, 0.04), rgba(212, 160, 42, 0.04))",
+      }}
+    >
+      {/* Titolo */}
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "15px",
+          fontStyle: "italic",
+          fontWeight: 700,
+          color: "var(--ink-strong)",
+          marginBottom: "10px",
+        }}
+      >
+        Cosa ti manca
+      </div>
+
+      {/* Layout a due colonne: tips a sinistra, donut a destra */}
+      <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+
+        {/* Colonna sinistra: lista */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {allDone ? (
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginBottom: "6px",
+                }}
+              >
+                <span style={{ fontSize: "22px" }}>🎉</span>
+                <div
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "15px",
+                    fontStyle: "italic",
+                    fontWeight: 700,
+                    color: "#5a7a3c",
+                  }}
+                >
+                  Giornata chiusa!
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: "11.5px",
+                  color: "var(--ink-soft)",
+                  fontStyle: "italic",
+                  lineHeight: 1.5,
+                  paddingLeft: "30px",
+                }}
+              >
+                {(() => {
+                  const ieriKey = dateKeyDaysBefore(currentDate, 1);
+                  const ieriDay = daysData[ieriKey];
+                  const ieriOro = ieriDay ? (ieriDay.oro || 0) : 0;
+                  const ieriHasData = ieriDay && Object.values(ieriDay).some(v => v > 0);
+                  const ieriSforatoOro = ieriHasData && ieriOro > 2;
+                  return ieriSforatoOro
+                    ? "Tutti i tasselli coperti. Ieri hai sforato l'Oro — oggi ci sei riuscito, ottimo."
+                    : "Tutti i tasselli coperti. Il tuo corpo ti ringrazia.";
+                })()}
+              </div>
+            </div>
+          ) : (
+            tips.slice(0, 6).map((tip, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "7px",
+                  marginBottom: "5px",
+                  fontSize: "11.5px",
+                  color: "var(--ink)",
+                  lineHeight: 1.4,
+                }}
+              >
+                <div
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    marginTop: "4px",
+                    flexShrink: 0,
+                    background:
+                      tip.urgency === "high"
+                        ? "#b03832"
+                        : tip.urgency === "med"
+                        ? "#b88824"
+                        : "#6b8a8a",
+                  }}
+                />
+                <span>{tip.message}</span>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Colonna destra: donut */}
+        <DonutChart today={today} adjustedTargets={adjustedTargets} />
+      </div>
+    </div>
+  );
+}
+
+
+
+// ===== panels/HistoryPanel.js =====
+// panels/HistoryPanel.js - storico giorni
+
+// ============================================================
+// HISTORY PANEL (last 7 days as a small bar chart)
+// ============================================================
+
+function HistoryPanel({ daysData, onClose, onSelectDay }) {
+  const last14Days = [];
+  for (let i = 13; i >= 0; i--) {
+    last14Days.push(daysAgoKey(i));
+  }
+
+  const dayStatus = (dateKey) => {
+    const day = daysData[dateKey];
+    if (!day) return { closed: 0, total: TASSELLI.length, empty: true };
+    let closed = 0;
+    TASSELLI.forEach((t) => {
+      const v = day[t.id] || 0;
+      const target = t.target;
+      if (t.isMin && v >= target) closed++;
+      else if (t.isMax && v > 0 && v <= target) closed++;
+      else if (!t.isMin && !t.isMax && v >= target) closed++;
+    });
+    return { closed, total: TASSELLI.length, empty: false };
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(58, 40, 24, 0.55)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "flex-end",
+        zIndex: 100,
+        animation: "fadeIn 200ms ease-out",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "440px",
+          margin: "0 auto",
+          background: "var(--bg-page)",
+          borderRadius: "20px 20px 0 0",
+          padding: "20px",
+          maxHeight: "85vh",
+          overflowY: "auto",
+          animation: "slideUp 280ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "16px",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "20px",
+              fontStyle: "italic",
+              color: "var(--ink-strong)",
+            }}
+          >
+            Storico
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: "50%",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--ink-soft)",
+            }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginBottom: "12px", fontStyle: "italic" }}>
+          Ultimi 14 giorni — clicca per modificare un giorno passato
+        </div>
+
+        {last14Days.map((dateKey) => {
+          const status = dayStatus(dateKey);
+          const ratio = status.empty ? 0 : status.closed / status.total;
+          return (
+            <button
+              key={dateKey}
+              onClick={() => {
+                onSelectDay(dateKey);
+                onClose();
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "10px 12px",
+                marginBottom: "4px",
+                background: status.empty ? "rgba(0,0,0,0.02)" : "var(--bg-card)",
+                border: "1px solid rgba(138, 90, 44, 0.1)",
+                borderRadius: "8px",
+                cursor: "pointer",
+                textAlign: "left",
+                opacity: status.empty ? 0.5 : 1,
+              }}
+            >
+              <span style={{ fontSize: "12px", fontWeight: 600, minWidth: "70px" }}>
+                {dayLabel(dateKey)}
+              </span>
+              <div
+                style={{
+                  flex: 1,
+                  height: "6px",
+                  background: "rgba(138, 90, 44, 0.1)",
+                  borderRadius: "3px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${ratio * 100}%`,
+                    height: "100%",
+                    background:
+                      ratio >= 0.85
+                        ? "#5a7a3c"
+                        : ratio >= 0.6
+                        ? "#b88824"
+                        : "#b03832",
+                  }}
+                />
+              </div>
+              <span style={{ fontSize: "11px", color: "var(--ink-soft)", minWidth: "30px", textAlign: "right" }}>
+                {status.empty ? "—" : `${status.closed}/${status.total}`}
+              </span>
+            </button>
+          );
+        })}
+
+        {/* Export / Import */}
+        <div style={{
+          marginTop: "20px",
+          paddingTop: "16px",
+          borderTop: "1px dashed rgba(138, 90, 44, 0.2)",
+        }}>
+          <div style={{ fontSize: "11px", color: "var(--ink-soft)", fontStyle: "italic", marginBottom: "10px" }}>
+            Backup dati — usa per passare a un nuovo dispositivo
+          </div>
+          <div style={{ display: "flex", gap: "5px" }}>
+            <button
+              onClick={() => {
+                const data = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  if (key && key.startsWith("parti_")) {
+                    data[key] = localStorage.getItem(key);
+                  }
+                }
+                const json = JSON.stringify(data, null, 2);
+                const blob = new Blob([json], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                const today = new Date().toISOString().slice(0, 10);
+                a.download = "metodo_parti_" + today + ".json";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+              style={{
+                flex: 1,
+                padding: "10px",
+                background: "var(--bg-card)",
+                border: "1px solid rgba(138, 90, 44, 0.25)",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 600,
+                color: "#3a2818",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+              }}
+            >
+              ⬇ Esporta dati
+            </button>
+            <button
+              onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".json";
+                input.onchange = (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (ev) => {
+                    try {
+                      const data = JSON.parse(ev.target.result);
+                      const validKeys = Object.keys(data).filter(k => k.startsWith("parti_"));
+                      if (validKeys.length === 0) {
+                        alert("File non valido: nessun dato del Metodo delle Parti trovato.");
+                        return;
+                      }
+                      const giorni = validKeys.filter(k => k.startsWith("parti_day:")).length;
+                      if (!window.confirm("Importare " + giorni + " giorni di dati?\n\nAttenzione: i dati attuali verranno sostituiti.")) return;
+                      const toDelete = [];
+                      for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith("parti_")) toDelete.push(key);
+                      }
+                      toDelete.forEach(k => localStorage.removeItem(k));
+                      validKeys.forEach(k => localStorage.setItem(k, data[k]));
+                      window.location.reload();
+                    } catch (err) {
+                      alert("Errore nel leggere il file: " + err.message);
+                    }
+                  };
+                  reader.readAsText(file);
+                };
+                input.click();
+              }}
+              style={{
+                flex: 1,
+                padding: "10px",
+                background: "#3a2818",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 600,
+                color: "white",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+              }}
+            >
+              ⬆ Importa dati
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ===== panels/GuidaPanel.js =====
+// panels/GuidaPanel.js - framework teorico (pilastri, interazioni, sezioni)
+
+// ============================================================
+// GUIDA PANEL — come funziona, pilastri, interazioni
+// ============================================================
+
+function GuidaPanel({ onClose }) {
+  const [activeTab, setActiveTab] = useState("come-funziona");
+  const tabs = [
+    { id: "come-funziona", label: "Come funziona" },
+    { id: "pilastri",      label: "Pilastri" },
+    { id: "interazioni",   label: "Interazioni" },
+  ];
+  return (
+    <SlidePanel title="Guida" subtitle="metodo, principi e sinergie nutrizionali" onClose={onClose}>
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              flex: 1,
+              padding: "7px 4px",
+              borderRadius: "20px",
+              border: activeTab === tab.id ? "none" : "1px solid rgba(138,90,44,0.25)",
+              background: activeTab === tab.id ? "var(--accent)" : "rgba(255,255,255,0.6)",
+              color: activeTab === tab.id ? "white" : "var(--ink-soft)",
+              fontSize: "11px",
+              fontWeight: activeTab === tab.id ? 700 : 400,
+              cursor: "pointer",
+              transition: "all 150ms",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Come funziona */}
+      {activeTab === "come-funziona" && INFO_SEZIONI.map((s, i) => (
+        <div
+          key={i}
+          style={{ background: "var(--bg-card)", border: "1px solid rgba(138, 90, 44, 0.12)", borderRadius: "12px", padding: "14px 16px", marginBottom: "10px" }}
+        >
+          <div style={{ fontFamily: "var(--font-display)", fontSize: "14px", fontStyle: "italic", fontWeight: 700, color: "var(--ink-strong)", marginBottom: "6px" }}>
+            {s.titolo}
+          </div>
+          <div style={{ fontSize: "12px", color: "var(--ink)", lineHeight: 1.6, whiteSpace: "pre-line" }}>
+            {s.testo}
+          </div>
+        </div>
+      ))}
+
+      {/* Pilastri */}
+      {activeTab === "pilastri" && PILASTRI.map((p) => (
+        <div
+          key={p.id}
+          style={{ background: "var(--bg-card)", border: "1px solid rgba(138, 90, 44, 0.12)", borderRadius: "12px", padding: "14px 16px", marginBottom: "10px", display: "flex", gap: "14px" }}
+        >
+          <div style={{ fontSize: "22px", flexShrink: 0, lineHeight: 1.2 }} aria-hidden="true">{p.icon}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontSize: "15px", fontStyle: "italic", fontWeight: 700, color: "var(--ink-strong)", marginBottom: "4px", lineHeight: 1.2 }}>
+              {p.title}
+            </div>
+            <div style={{ fontSize: "12px", color: "var(--ink)", lineHeight: 1.6, whiteSpace: "pre-line" }}>
+              {p.body}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Interazioni */}
+      {activeTab === "interazioni" && INTERAZIONI.map((group, gi) => (
+        <div key={gi} style={{ marginBottom: "20px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "10px", paddingBottom: "6px", borderBottom: "2px solid " + group.color }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: "18px", fontStyle: "italic", fontWeight: 700, color: group.color }}>
+              {group.verb}
+            </span>
+            <span style={{ fontSize: "11px", color: "var(--ink-soft)", fontStyle: "italic" }}>
+              {group.subtitle}
+            </span>
+          </div>
+          {group.items.map((item, ii) => (
+            <div key={ii} style={{ marginBottom: "10px", paddingLeft: "12px", borderLeft: "2px solid " + group.color + "40" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink-strong)", marginBottom: "3px" }}>
+                {item.title}
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--ink)", lineHeight: 1.6 }}>
+                {item.body}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </SlidePanel>
+  );
+}
+
+
+// ===== panels/ProntuarioPanel.js =====
+// panels/ProntuarioPanel.js - prontuario alimenti + aggiunta al giorno
+
+// ============================================================
+// PRONTUARIO PANEL — searchable food classification database
+// ============================================================
+
+function ProntuarioPanel({ onClose, onAddItem, addedLabel }) {
+  const [query, setQuery] = useState("");
+  const [addedItems, setAddedItems] = useState({});
+
+  // Le sezioni partono collassate a ogni apertura del prontuario.
+  // openSections è solo stato di sessione: tiene quali sezioni l'utente ha
+  // aperto manualmente, senza persistenza (alla riapertura riparte chiuso).
+  const [openSections, setOpenSections] = useState({});
+
+  const toggleSection = (sectionName) => {
+    setOpenSections((prev) => ({ ...prev, [sectionName]: !prev[sectionName] }));
+  };
+
+  const norm = (s) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const filtered = useMemo(() => {
+    const q = norm(query.trim());
+    if (!q) return PRONTUARIO;
+    return PRONTUARIO.map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        const hay = norm(item.name + " " + (item.note || "") + " " + item.value);
+        return hay.includes(q);
+      }),
+    })).filter((section) => section.items.length > 0);
+  }, [query]);
+
+  const slotColor = (slot) => {
+    const colors = {
+      energia: "#8b6332", forza: "#b03832", foglia: "#5a7a3c",
+      colore: "#c97a4d", frutto: "#a8456e", oro: "#b88824", granello: "#6b8a8a",
+    };
+    return colors[slot] || "#888";
+  };
+
+  const handleAdd = (item, key) => {
+    if (!onAddItem) return;
+    onAddItem(item);
+    setAddedItems((prev) => ({ ...prev, [key]: true }));
+    setTimeout(() => setAddedItems((prev) => { const n = { ...prev }; delete n[key]; return n; }), 1800);
+  };
+
+  const parsed = (item) => parseItemValue(item.value);
+  const hasAction = (item) => {
+    const { tasselli, flags } = parsed(item);
+    return Object.keys(tasselli).length > 0 || flags.length > 0;
+  };
+
+  return (
+    <SlidePanel
+      title="Prontuario dei cibi"
+      subtitle="Cerca un alimento o sfoglia per categoria. Tap su una riga per vedere la classificazione."
+      onClose={onClose}
+    >
+      {/* Search box */}
+      <div
+        style={{
+          position: "relative",
+          marginBottom: "14px",
+        }}
+      >
+        <Search
+          size={16}
+          color="var(--ink-soft)"
+          style={{
+            position: "absolute",
+            left: "12px",
+            top: "50%",
+            transform: "translateY(-50%)",
+            pointerEvents: "none",
+          }}
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="cerca tofu, cornetto, hummus..."
+          style={{
+            width: "100%",
+            padding: "10px 12px 10px 36px",
+            fontSize: "13px",
+            fontFamily: "var(--font-body)",
+            background: "var(--bg-card)",
+            border: "1px solid rgba(138, 90, 44, 0.2)",
+            borderRadius: "10px",
+            outline: "none",
+            color: "var(--ink)",
+            boxSizing: "border-box",
+          }}
+        />
+        {query && (
+          <button
+            onClick={() => setQuery("")}
+            style={{
+              position: "absolute",
+              right: "8px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--ink-soft)",
+              padding: "4px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      {filtered.length === 0 && (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "30px 10px",
+            color: "var(--ink-soft)",
+            fontSize: "13px",
+            fontStyle: "italic",
+          }}
+        >
+          Nessun alimento corrisponde a "{query}".
+          <br />
+          <span style={{ fontSize: "11px" }}>
+            Usa il principio dei 5 secondi: lista ingredienti corta = pieno valore nel tassello dominante, lista lunga = metà valore.
+          </span>
+        </div>
+      )}
+
+      {filtered.map((section) => {
+        // Durante la ricerca le sezioni con risultati restano sempre aperte.
+        const isCollapsed = query.trim() ? false : !openSections[section.section];
+        return (
+        <div key={section.section} style={{ marginBottom: "10px" }}>
+          {/* Section header — cliccabile */}
+          <button
+            onClick={() => toggleSection(section.section)}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "transparent",
+              border: "none",
+              borderBottom: isCollapsed
+                ? "1px solid rgba(138,90,44,0.15)"
+                : "1px solid rgba(138,90,44,0.15)",
+              padding: "6px 4px",
+              marginBottom: isCollapsed ? "2px" : "8px",
+              cursor: "pointer",
+              gap: "6px",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "9px",
+                letterSpacing: "0.22em",
+                fontWeight: 700,
+                color: "var(--ink-soft)",
+                textTransform: "uppercase",
+                textAlign: "left",
+                flex: 1,
+              }}
+            >
+              {section.section}
+            </span>
+            <span
+              style={{
+                fontSize: "10px",
+                color: "var(--ink-soft)",
+                fontStyle: "italic",
+                flexShrink: 0,
+                marginRight: "2px",
+              }}
+            >
+              {isCollapsed ? `${section.items.length} voci` : ""}
+            </span>
+            <svg
+              width="14" height="14" viewBox="0 0 24 24"
+              fill="none" stroke="var(--ink-soft)" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+              style={{
+                flexShrink: 0,
+                transition: "transform 200ms ease",
+                transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+              }}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+
+          {/* Items — nascosti se collassato */}
+          {!isCollapsed && section.items.map((item, i) => {
+            const itemKey = `${section.section}:${i}`;
+            const isAdded = addedItems[itemKey];
+            const canAdd = hasAction(item);
+            const { tasselli: tv } = parsed(item);
+            const mainSlot = item.slots[0];
+            const btnColor = mainSlot ? slotColor(mainSlot) : "#8a5a2c";
+
+            return (
+              <div
+                key={i}
+                style={{
+                  background: isAdded ? "rgba(90,122,60,0.07)" : "var(--bg-card)",
+                  border: isAdded ? "1px solid rgba(90,122,60,0.3)" : "1px solid rgba(138, 90, 44, 0.1)",
+                  borderRadius: "10px",
+                  padding: "10px 12px",
+                  marginBottom: "6px",
+                  transition: "background 200ms, border 200ms",
+                }}
+              >
+                {/* Row 1: dots + name + add button */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                  {/* Slot dots */}
+                  <div style={{ display: "flex", gap: "3px", flexShrink: 0, paddingTop: "5px" }}>
+                    {item.slots.length === 0 ? (
+                      <div style={{ width: "8px", height: "8px", borderRadius: "50%", border: "1.5px solid #b0a090", background: "transparent" }} />
+                    ) : (
+                      item.slots.map((slot) => (
+                        <div key={slot} style={{ width: "8px", height: "8px", borderRadius: "50%", background: slotColor(slot) }} />
+                      ))
+                    )}
+                  </div>
+                  {/* Name + portion */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink-strong)", lineHeight: 1.3 }}>
+                      {item.name}
+                    </div>
+                    <div style={{ fontSize: "10px", color: "var(--ink-soft)", fontStyle: "italic", marginTop: "1px" }}>
+                      {item.portion}
+                    </div>
+                  </div>
+                  {/* Add button */}
+                  {canAdd && (
+                    <button
+                      onClick={() => handleAdd(item, itemKey)}
+                      aria-label={isAdded ? "Aggiunto" : `Aggiungi ${item.name} al giorno`}
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        borderRadius: "50%",
+                        flexShrink: 0,
+                        border: isAdded ? "none" : `1.5px solid ${btnColor}`,
+                        background: isAdded ? "#5a7a3c" : "rgba(255,255,255,0.7)",
+                        color: isAdded ? "white" : btnColor,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all 200ms",
+                        marginTop: "1px",
+                      }}
+                    >
+                      {isAdded
+                        ? <Check size={13} strokeWidth={3} />
+                        : <Plus size={13} strokeWidth={2.5} />
+                      }
+                    </button>
+                  )}
+                </div>
+                {/* Row 2: value */}
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    fontStyle: "italic",
+                    color: mainSlot ? slotColor(mainSlot) : "var(--ink-soft)",
+                    marginTop: "4px",
+                    paddingLeft: "18px",
+                  }}
+                >
+                  {item.value}
+                </div>
+                {/* Row 3: note */}
+                {item.note && (
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      color: item.note.startsWith("⚠") ? "#b03832" : "var(--ink-soft)",
+                      fontStyle: "italic",
+                      marginTop: "4px",
+                      paddingLeft: "18px",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {item.note}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+        </div>
+        );
+      })}
+    </SlidePanel>
+  );
+}
+
+
+// ===== panels/SpesaPanel.js =====
+// panels/SpesaPanel.js - lista della spesa
+
+// ============================================================
+// INFO PANEL — Come funziona l'app
+// ============================================================
+
+// ============================================================
+// SPESA PANEL — Linee guida per la spesa settimanale
+// ============================================================
+
+function SpesaPanel({ onClose }) {
+  return (
+    <SlidePanel
+      title="Lista della spesa"
+      subtitle="Guida settimanale per coprire tutti i tasselli"
+      onClose={onClose}
+    >
+      {SPESA.map((s, i) => (
+        <div
+          key={i}
+          style={{
+            background: "var(--bg-card)",
+            border: `1px solid ${s.colore}22`,
+            borderLeft: `3px solid ${s.colore}`,
+            borderRadius: "12px",
+            padding: "14px 16px",
+            marginBottom: "10px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "7px",
+            }}
+          >
+            <span style={{ fontSize: "16px" }} aria-hidden="true">{s.emoji}</span>
+            <div
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "14px",
+                fontStyle: "italic",
+                fontWeight: 700,
+                color: s.colore,
+                lineHeight: 1.2,
+              }}
+            >
+              {s.titolo}
+            </div>
+          </div>
+          <div
+            style={{
+              fontSize: "12px",
+              color: "var(--ink)",
+              lineHeight: 1.6,
+              whiteSpace: "pre-line",
+            }}
+          >
+            {s.testo}
+          </div>
+        </div>
+      ))}
+    </SlidePanel>
+  );
+}
+
+
+// ===== App.js =====
+// ============================================================
+// MAIN APP
+// ============================================================
+
+function App() {
+  // State
+  const [currentDate, setCurrentDate] = useState(todayKey());
+  const [daysData, setDaysData] = useState({});
+  const [flagsData, setFlagsData] = useState({}); // { "2026-05-27": { vitc: true, omega3: false, calcio: true } }
+  const [loading, setLoading] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [guidaOpen, setGuidaOpen] = useState(false);
+  const [prontuarioOpen, setProntuarioOpen] = useState(false);
+  const [spesaOpen, setSpesaOpen] = useState(false);
+
+  // Load from storage on mount
+  useEffect(() => {
+    try {
+      // One-shot cleanup: rimuove chiavi obsolete (parti_week e altro) preservando solo i dati attuali
+      const validPrefixes = ["parti_day:", "parti_flag:"];
+      Object.keys(localStorage)
+        .filter((k) => !validPrefixes.some((p) => k.startsWith(p)))
+        .forEach((k) => localStorage.removeItem(k));
+
+      const data = {};
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("parti_day:"))
+        .forEach((key) => {
+          try { data[key.replace("parti_day:", "")] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+        });
+      setDaysData(data);
+
+      const flagData = {};
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("parti_flag:"))
+        .forEach((key) => {
+          try { flagData[key.replace("parti_flag:", "")] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+        });
+      setFlagsData(flagData);
+    } catch (e) {
+      console.error("Load error:", e);
+    }
+    setLoading(false);
+  }, []);
+
+  // Persist a day's data
+  const updateDay = (dateKey, tasselloId, newValue) => {
+    const newDay = { ...(daysData[dateKey] || {}), [tasselloId]: newValue };
+    setDaysData((prev) => ({ ...prev, [dateKey]: newDay }));
+    try {
+      localStorage.setItem(`parti_day:${dateKey}`, JSON.stringify(newDay));
+    } catch (e) {
+      console.error("Save error:", e);
+    }
+  };
+
+  const toggleFlag = (dateKey, flagId) => {
+    const dayFlags = flagsData[dateKey] || {};
+    const newDayFlags = { ...dayFlags, [flagId]: !dayFlags[flagId] };
+    setFlagsData((prev) => ({ ...prev, [dateKey]: newDayFlags }));
+    try {
+      localStorage.setItem(`parti_flag:${dateKey}`, JSON.stringify(newDayFlags));
+    } catch (e) {
+      console.error("Save flag error:", e);
+    }
+  };
+
+  const resetToday = () => {
+    if (!confirm("Azzerare la giornata di " + dayLabel(currentDate) + "?")) return;
+    setDaysData((prev) => {
+      const next = { ...prev };
+      delete next[currentDate];
+      return next;
+    });
+    try {
+      localStorage.removeItem(`parti_day:${currentDate}`);
+    } catch (e) {}
+  };
+
+  // Add a prontuario item's tasselli to the current date atomically
+  const handleAddProntuarioItem = (item) => {
+    const { tasselli, flags } = parseItemValue(item.value);
+
+    // Build updated day atomically (avoids stale closure issues with multiple tasselli)
+    const currentDay = daysData[currentDate] || {};
+    const newDay = { ...currentDay };
+    let granelloIncrement = 0;
+    let dayChanged = false;
+
+    for (const [id, amount] of Object.entries(tasselli)) {
+      if (id === "granello") {
+        granelloIncrement += amount;
+      } else {
+        newDay[id] = Math.round(((newDay[id] || 0) + amount) * 10) / 10;
+        dayChanged = true;
+      }
+    }
+
+    if (dayChanged) {
+      setDaysData((prev) => ({ ...prev, [currentDate]: newDay }));
+      try { localStorage.setItem(`parti_day:${currentDate}`, JSON.stringify(newDay)); } catch (e) {}
+    }
+
+    if (granelloIncrement > 0) {
+      const currentGranello = (daysData[currentDate] || {}).granello || 0;
+      const newGranello = Math.round((currentGranello + granelloIncrement) * 10) / 10;
+      updateDay(currentDate, "granello", newGranello);
+    }
+
+    // Toggle flags (only if not already tapped today)
+    const todayFlags = flagsData[currentDate] || {};
+    for (const flagId of flags) {
+      if (!todayFlags[flagId]) toggleFlag(currentDate, flagId);
+    }
+  };
+
+  // Derived state
+  const today = daysData[currentDate] || {};
+  const isToday = currentDate === todayKey();
+  const compensation = useMemo(
+    () => (isToday ? computeCompensation(daysData, currentDate) : {}),
+    [daysData, currentDate, isToday]
+  );
+
+  // Adjusted targets factor in compensation from previous days.
+  // compensation[id] is now an object { delta, reason, sourceDates, remainingDebt }
+  const adjustedTargets = useMemo(() => {
+    const out = {};
+    TASSELLI.forEach((t) => {
+      const adj = compensation[t.id];
+      if (adj != null) {
+        const newTarget = t.target + adj.delta;
+        const floor = t.softMin ?? 0;
+        out[t.id] = Math.max(floor, newTarget);
+      } else {
+        out[t.id] = t.target;
+      }
+    });
+    return out;
+  }, [compensation]);
+
+  const flagStates = useMemo(
+    () => computeFlagStates(flagsData, currentDate),
+    [flagsData, currentDate]
+  );
+
+  // Streak warnings per ogni tassello: "high" | "med" | "low" | null
+  const streakWarnings = useMemo(() => {
+    const out = {};
+    TASSELLI.forEach((t) => {
+      const consumed = today[t.id] || 0;
+      const target = adjustedTargets[t.id] ?? t.target;
+      const isBelowToday = consumed < target;
+      if (!isBelowToday) { out[t.id] = null; return; }
+
+      if (t.id === "forza") {
+        const prev = daysBelow(daysData, t.id, t.target, 1, currentDate);
+        out[t.id] = prev < 0 ? null : prev >= 1 ? "high" : "med";
+      } else if (t.isMin || t.id === "frutto") {
+        const prev = daysBelow(daysData, t.id, t.target, 2, currentDate);
+        out[t.id] = prev < 0 ? null : prev >= 2 ? "high" : prev === 1 ? "med" : "low";
+      } else {
+        out[t.id] = null;
+      }
+    });
+    return out;
+  }, [today, adjustedTargets, daysData, currentDate]);
+
+  const navDay = (direction) => {
+    const d = new Date(currentDate + "T12:00:00");
+    d.setDate(d.getDate() + direction);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (d > today) return; // can't navigate to future
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    setCurrentDate(`${y}-${m}-${day}`);
+  };
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg-page)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "var(--font-display)",
+          fontStyle: "italic",
+          color: "var(--ink-soft)",
+        }}
+      >
+        ...
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg-page)",
+        fontFamily: "var(--font-body)",
+        color: "var(--ink)",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "440px",
+          margin: "0 auto",
+          padding: "16px 14px 28px",
+        }}
+      >
+        {/* Header */}
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "12px",
+            paddingTop: "4px",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: "9px",
+                letterSpacing: "0.32em",
+                fontWeight: 700,
+                color: "var(--accent)",
+                textTransform: "uppercase",
+                marginBottom: "2px",
+              }}
+            >
+              Il metodo delle parti
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "24px",
+                fontStyle: "italic",
+                color: "var(--ink-strong)",
+                lineHeight: 1,
+              }}
+            >
+              {dayLabel(currentDate)}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "5px" }}>
+            <button
+              onClick={() => setGuidaOpen(true)}
+              aria-label="Guida"
+              style={{
+                width: "34px",
+                height: "34px",
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.7)",
+                border: "1px solid rgba(138, 90, 44, 0.2)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--accent)",
+              }}
+            >
+              <Info size={17} />
+            </button>
+            <button
+              onClick={() => setSpesaOpen(true)}
+              aria-label="Lista della spesa"
+              style={{
+                width: "34px",
+                height: "34px",
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.7)",
+                border: "1px solid rgba(138, 90, 44, 0.2)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--accent)",
+              }}
+            >
+              <ShoppingCart size={17} />
+            </button>
+            <button
+              onClick={() => setProntuarioOpen(true)}
+              aria-label="Prontuario dei cibi"
+              style={{
+                width: "34px",
+                height: "34px",
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.7)",
+                border: "1px solid rgba(138, 90, 44, 0.2)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--accent)",
+              }}
+            >
+              <BookOpen size={17} />
+            </button>
+            <button
+              onClick={() => setHistoryOpen(true)}
+              aria-label="Storico"
+              style={{
+                width: "34px",
+                height: "34px",
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.7)",
+                border: "1px solid rgba(138, 90, 44, 0.2)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--accent)",
+              }}
+            >
+              <Calendar size={18} />
+            </button>
+          </div>
+        </header>
+
+        {/* Day navigation */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "16px",
+            background: "rgba(255,255,255,0.45)",
+            borderRadius: "10px",
+            padding: "6px 10px",
+          }}
+        >
+          <button
+            onClick={() => navDay(-1)}
+            aria-label="Giorno precedente"
+            style={{
+              width: "28px",
+              height: "28px",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "var(--ink-soft)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span style={{ fontSize: "11px", color: "var(--ink-soft)", fontStyle: "italic" }}>
+            {!isToday && (
+              <button
+                onClick={() => setCurrentDate(todayKey())}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--accent)",
+                  cursor: "pointer",
+                  fontStyle: "italic",
+                  fontSize: "11px",
+                  textDecoration: "underline",
+                }}
+              >
+                torna a oggi
+              </button>
+            )}
+            {isToday && "ultimi 7 giorni in continuo"}
+          </span>
+          <button
+            onClick={() => navDay(1)}
+            disabled={isToday}
+            aria-label="Giorno successivo"
+            style={{
+              width: "28px",
+              height: "28px",
+              border: "none",
+              background: "transparent",
+              cursor: isToday ? "not-allowed" : "pointer",
+              color: isToday ? "rgba(0,0,0,0.15)" : "var(--ink-soft)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        {/* Suggestions */}
+        {isToday && (
+          <SuggestionsPanel
+            today={today}
+            adjustedTargets={adjustedTargets}
+            daysData={daysData}
+            currentDate={currentDate}
+            granelloRolling={rollingGranello(daysData, currentDate)}
+            todayFlags={flagsData[currentDate] || {}}
+          />
+        )}
+
+        {/* Compensation banner */}
+        {isToday && Object.keys(compensation).length > 0 && (
+          <div
+            style={{
+              background: "rgba(176, 56, 50, 0.08)",
+              border: "1px solid rgba(176, 56, 50, 0.25)",
+              borderRadius: "10px",
+              padding: "10px 14px",
+              marginBottom: "14px",
+              fontSize: "12px",
+              color: "var(--ink)",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "8px",
+            }}
+          >
+            <TrendingDown size={16} color="#b03832" style={{ marginTop: "1px", flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontStyle: "italic", fontWeight: 600, marginBottom: "2px" }}>
+                Target rivisti per il rientro
+              </div>
+              {Object.entries(compensation).map(([id, adj]) => {
+                const t = TASSELLI.find((x) => x.id === id);
+                const newTarget = adjustedTargets[id];
+                return (
+                  <div
+                    key={id}
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--ink)",
+                      marginTop: "2px",
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>{t.label}</span>: {newTarget}{" "}
+                    {t.unit} oggi ({adj.delta > 0 ? "+" : ""}
+                    {adj.delta} da {t.target})
+                    {adj.remainingDebt && adj.remainingDebt > Math.abs(adj.delta) + 0.001 && (
+                      <span style={{ color: "var(--ink-soft)", fontStyle: "italic" }}>
+                        {" "}
+                        — debito residuo {adj.remainingDebt.toFixed(1)}, prosegue domani
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Counters */}
+        {TASSELLI.map((t) => {
+          const inlineFlag = FLAGS.find((f) => f.tasselloId === t.id);
+          const flagChip = inlineFlag ? (
+            <FlagChip
+              flag={inlineFlag}
+              state={flagStates[inlineFlag.id] || { tappedToday: false, status: "ok", daysSince: 0 }}
+              onToggle={() => toggleFlag(currentDate, inlineFlag.id)}
+            />
+          ) : null;
+          return (
+            <Counter
+              key={t.id}
+              tassello={t}
+              value={today[t.id] || 0}
+              adjustedTarget={isToday ? adjustedTargets[t.id] : t.target}
+              onChange={(v) => updateDay(currentDate, t.id, v)}
+              flagChip={flagChip}
+              streakWarning={isToday ? (streakWarnings[t.id] || null) : null}
+            />
+          );
+        })}
+
+        {/* Granello (weekly) */}
+        <div style={{ marginTop: "16px", marginBottom: "10px" }}>
+          <div
+            style={{
+              fontSize: "9px",
+              letterSpacing: "0.28em",
+              fontWeight: 700,
+              color: "var(--ink-soft)",
+              textTransform: "uppercase",
+              paddingLeft: "4px",
+              marginBottom: "8px",
+            }}
+          >
+            Settimanale
+          </div>
+          <GranelloCounter
+            value={rollingGranello(daysData, currentDate)}
+            granelleOggi={today.granello || 0}
+            onChange={(v) => updateDay(currentDate, "granello", v)}
+          />
+          <FlagsStandalone
+            flagStates={flagStates}
+            onToggle={(flagId) => toggleFlag(currentDate, flagId)}
+          />
+        </div>
+
+        {/* Reset */}
+        <button
+          onClick={resetToday}
+          style={{
+            width: "100%",
+            marginTop: "20px",
+            padding: "10px",
+            background: "transparent",
+            border: "1px dashed rgba(138, 90, 44, 0.3)",
+            borderRadius: "8px",
+            cursor: "pointer",
+            color: "var(--ink-soft)",
+            fontSize: "11px",
+            fontStyle: "italic",
+            fontFamily: "var(--font-body)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "6px",
+          }}
+        >
+          <RotateCcw size={12} />
+          Azzera {dayLabel(currentDate).toLowerCase()}
+        </button>
+
+        {/* Footer */}
+        <div
+          style={{
+            marginTop: "24px",
+            paddingTop: "16px",
+            borderTop: "1px dotted rgba(138, 90, 44, 0.25)",
+            fontSize: "10px",
+            color: "var(--ink-soft)",
+            textAlign: "center",
+            fontStyle: "italic",
+            lineHeight: 1.5,
+          }}
+        >
+          Una parte = un quarto di piatto.
+          <br />
+          Nessun calcolo di calorie. Solo riconoscimento e copertura.
+        </div>
+      </div>
+
+      {historyOpen && (
+        <HistoryPanel
+          daysData={daysData}
+          onClose={() => setHistoryOpen(false)}
+          onSelectDay={setCurrentDate}
+        />
+      )}
+
+      {guidaOpen && <GuidaPanel onClose={() => setGuidaOpen(false)} />}
+      {prontuarioOpen && (
+        <ProntuarioPanel
+          onClose={() => setProntuarioOpen(false)}
+          onAddItem={handleAddProntuarioItem}
+          addedLabel={dayLabel(currentDate)}
+        />
+      )}
+      {spesaOpen && <SpesaPanel onClose={() => setSpesaOpen(false)} />}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(h(App));
+
+</script>
+</body>
+</html>

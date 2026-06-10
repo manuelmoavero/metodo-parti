@@ -1,0 +1,43 @@
+/* Metodo delle Parti - token di design, reset, keyframe, stati :active/:focus.
+   File generato in Fase 1: contiene SOLO token e regole globali, nessuno stile
+   per-componente (quello resta inline via style={{...}} che legge var(--...)). */
+
+/* Reset (prima era nel blocco <style> inline dell'head) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; -webkit-text-size-adjust: 100%; }
+body { min-height: 100%; background: #fbf5e9; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+input { font-family: inherit; }
+
+/* Token di design (prima nel componente React Styles) */
+:root {
+  --bg-page: #fbf5e9;
+  --bg-card: rgba(255, 255, 255, 0.55);
+  --ink: #4a3018;
+  --ink-strong: #3a2818;
+  --ink-soft: #8a5a2c;
+  --accent: #b03832;
+  --font-display: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Keyframe */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Stati interattivi globali */
+button:active {
+  transform: scale(0.95);
+}
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+* {
+  -webkit-tap-highlight-color: transparent;
+}
