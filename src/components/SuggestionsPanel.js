@@ -2,9 +2,9 @@
 
 // ── SuggestionsPanel ─────────────────────────────────────────────────────────
 
-function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags }) {
-  const tips = suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags);
-  const closedCount = TASSELLI.filter((t) => {
+function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags, tasselli, granelloConfig }) {
+  const tips = suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags, tasselli, granelloConfig);
+  const closedCount = tasselli.filter((t) => {
     const v = today[t.id] || 0;
     const target = adjustedTargets[t.id] ?? t.target;
     if (t.isMin) return v >= target;
@@ -13,7 +13,7 @@ function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, grane
     return v >= target;
   }).length;
 
-  const allDone = closedCount === TASSELLI.length;
+  const allDone = closedCount === tasselli.length;
 
   return (
     <div
@@ -81,7 +81,7 @@ function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, grane
                   const ieriDay = daysData[ieriKey];
                   const ieriOro = ieriDay ? (ieriDay.oro || 0) : 0;
                   const ieriHasData = ieriDay && Object.values(ieriDay).some(v => v > 0);
-                  const ieriSforatoOro = ieriHasData && ieriOro > 2;
+                  const ieriSforatoOro = ieriHasData && ieriOro > (tasselli.find(t => t.id === "oro")?.target ?? 2);
                   return ieriSforatoOro
                     ? "Tutti i tasselli coperti. Ieri hai sforato l'Oro — oggi ci sei riuscito, ottimo."
                     : "Tutti i tasselli coperti. Il tuo corpo ti ringrazia.";

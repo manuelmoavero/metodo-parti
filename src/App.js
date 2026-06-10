@@ -3,6 +3,12 @@
 // ============================================================
 
 function App() {
+  // Config per-utente: oggi sempre da default; domani potrà venire da Supabase
+  // senza toccare nessun consumatore (tasselli, compensation, suggestions leggono da qui)
+  const userConfig = getDefaultConfig();
+  // Tasselli semantici + parametri quantitativi per-utente fusi insieme
+  const tasselli = mergeTasselli(TASSELLI, userConfig);
+
   // State
   const [currentDate, setCurrentDate] = useState(todayKey());
   const [daysData, setDaysData] = useState({});
@@ -118,7 +124,7 @@ function App() {
   const today = daysData[currentDate] || {};
   const isToday = currentDate === todayKey();
   const compensation = useMemo(
-    () => (isToday ? computeCompensation(daysData, currentDate) : {}),
+    () => (isToday ? computeCompensation(daysData, currentDate, userConfig) : {}),
     [daysData, currentDate, isToday]
   );
 
@@ -126,7 +132,7 @@ function App() {
   // compensation[id] is now an object { delta, reason, sourceDates, remainingDebt }
   const adjustedTargets = useMemo(() => {
     const out = {};
-    TASSELLI.forEach((t) => {
+    tasselli.forEach((t) => {
       const adj = compensation[t.id];
       if (adj != null) {
         const newTarget = t.target + adj.delta;
@@ -147,7 +153,7 @@ function App() {
   // Streak warnings per ogni tassello: "high" | "med" | "low" | null
   const streakWarnings = useMemo(() => {
     const out = {};
-    TASSELLI.forEach((t) => {
+    tasselli.forEach((t) => {
       const consumed = today[t.id] || 0;
       const target = adjustedTargets[t.id] ?? t.target;
       const isBelowToday = consumed < target;
@@ -401,6 +407,8 @@ function App() {
             currentDate={currentDate}
             granelloRolling={rollingGranello(daysData, currentDate)}
             todayFlags={flagsData[currentDate] || {}}
+            tasselli={tasselli}
+            granelloConfig={userConfig.granello}
           />
         )}
 
@@ -426,7 +434,7 @@ function App() {
                 Target rivisti per il rientro
               </div>
               {Object.entries(compensation).map(([id, adj]) => {
-                const t = TASSELLI.find((x) => x.id === id);
+                const t = tasselli.find((x) => x.id === id);
                 const newTarget = adjustedTargets[id];
                 return (
                   <div
@@ -454,7 +462,7 @@ function App() {
         )}
 
         {/* Counters */}
-        {TASSELLI.map((t) => {
+        {tasselli.map((t) => {
           const inlineFlag = FLAGS.find((f) => f.tasselloId === t.id);
           const flagChip = inlineFlag ? (
             <FlagChip

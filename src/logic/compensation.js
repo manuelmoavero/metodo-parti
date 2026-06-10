@@ -19,72 +19,29 @@
 //
 // We return the net adjustment that should apply to the target day, in
 // the form of an object { tasselloId: { delta, reason, sourceDate } }.
+//
+// Il cap di ogni tassello è derivato dalla config: softMax ?? target.
+// Non è duplicato qui: se il target per-utente cambia, il cap segue automaticamente.
 
-function computeCompensation(daysData, targetDateKey) {
-  // Look back at most LOOKBACK_DAYS days to find recent overflows
-  const LOOKBACK_DAYS = 5;
-
+function computeCompensation(daysData, targetDateKey, userConfig) {
+  const compCfg = userConfig.compensation;
+  const lookbackDays = compCfg.lookbackDays;
   const adjustments = {};
 
-  // Energia: if exceeded (>3), spread -0.5/day over next 2 days
-  computeForTassello(
-    daysData,
-    targetDateKey,
-    LOOKBACK_DAYS,
-    {
-      id: "energia",
-      cap: 3,
-      perDayReduction: 0.5,
-      spreadDays: 2,
-    },
-    adjustments
-  );
-
-  // Forza: if exceeded (>2.5), spread -0.5 over 1 day (next day only),
-  // but never push target below 1.5
-  computeForTassello(
-    daysData,
-    targetDateKey,
-    LOOKBACK_DAYS,
-    {
-      id: "forza",
-      cap: 2.5,
-      perDayReduction: 0.5,
-      spreadDays: 1,
-      floor: 1.5,
-    },
-    adjustments
-  );
-
-  // Oro: if exceeded (>5), reduce 0.5 over 2 days, floor at 1
-  computeForTassello(
-    daysData,
-    targetDateKey,
-    LOOKBACK_DAYS,
-    {
-      id: "oro",
-      cap: 5,
-      perDayReduction: 0.5,
-      spreadDays: 2,
-      floor: 1,
-    },
-    adjustments
-  );
-
-  // Frutto: if exceeded (>4 sweet), reduce 1 unit next day, floor 1
-  computeForTassello(
-    daysData,
-    targetDateKey,
-    LOOKBACK_DAYS,
-    {
-      id: "frutto",
-      cap: 4,
-      perDayReduction: 1,
-      spreadDays: 1,
-      floor: 1,
-    },
-    adjustments
-  );
+  const ids = ["energia", "forza", "oro", "frutto"];
+  for (const id of ids) {
+    const rule = compCfg[id];
+    if (!rule) continue;
+    const tCfg = userConfig.tasselli[id];
+    const cap = tCfg.softMax != null ? tCfg.softMax : tCfg.target;
+    computeForTassello(
+      daysData,
+      targetDateKey,
+      lookbackDays,
+      { id, cap, ...rule },
+      adjustments
+    );
+  }
 
   return adjustments;
 }

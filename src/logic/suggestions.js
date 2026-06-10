@@ -30,10 +30,12 @@ function daysBelow(daysData, tasselloId, target, windowDays, todayKey) {
   return count;
 }
 
-function suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags) {
+// tasselli: array mergiato (TASSELLI + config), già con i valori per-utente
+// granelloConfig: userConfig.granello
+function suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags, tasselli, granelloConfig) {
   const tips = [];
 
-  TASSELLI.forEach((t) => {
+  tasselli.forEach((t) => {
     const consumed = today[t.id] || 0;
     const target = adjustedTargets[t.id] ?? t.target;
 
@@ -58,7 +60,7 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
         });
       }
     } else if (t.isMax) {
-      // Energia — tetto (max 3) con floor nutrizionale morbido (min 1)
+      // Energia — tetto con floor nutrizionale morbido (softMin)
       if (consumed > target) {
         tips.push({
           type: "exceeded",
@@ -67,7 +69,7 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
           urgency: "high",
         });
       } else if (t.softMin != null && consumed < t.softMin) {
-        // Floor: sotto 1 parte → avviso morbido con finestra 3 giorni (stessa logica isMin)
+        // Floor: sotto softMin → avviso morbido con finestra 3 giorni (stessa logica isMin)
         const missing = +(t.softMin - consumed).toFixed(1);
         const prevDaysBelow = daysBelow(daysData, t.id, t.softMin, 2, currentDate);
         const urgency = prevDaysBelow < 0 ? null : prevDaysBelow >= 2 ? "high" : prevDaysBelow === 1 ? "med" : "low";
@@ -139,14 +141,13 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
         });
       }
       } else if (t.id === "oro") {
-      // Oro — softMin a 1 cucchiaio, softMax a 5
-      // Controlla se ieri ha sforato il target base (> 2), indipendente da adjustedTargets
-      const ORO_TARGET_BASE = 2;
+      // Oro — softMin e softMax letti da t (già mergiati dalla config)
+      // Controlla se ieri ha sforato il target base, letto da t.target
       const ieriKey = dateKeyDaysBefore(currentDate, 1);
       const ieriDay = daysData[ieriKey];
       const ieriOro = ieriDay ? (ieriDay.oro || 0) : 0;
       const ieriHasData = ieriDay && Object.values(ieriDay).some(v => v > 0);
-      const ieriSforato = ieriHasData && ieriOro > ORO_TARGET_BASE;
+      const ieriSforato = ieriHasData && ieriOro > t.target;
 
       if (consumed < target) {
         const missing = +(target - consumed).toFixed(1);
@@ -157,7 +158,7 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
           message: belowMin
             ? `Manca ${missing} ${t.unit} di ${t.label} — sotto il minimo funzionale (1 cucchiaio)`
             : ieriSforato
-            ? `Manca ${missing} ${t.unit} di ${t.label} — ieri hai sforato, oggi prova a restare sui 2`
+            ? `Manca ${missing} ${t.unit} di ${t.label} — ieri hai sforato, oggi prova a restare sui ${t.target}`
             : `Manca ${missing} ${t.unit} di ${t.label}`,
           urgency: belowMin ? "high" : "med",
         });
@@ -167,7 +168,7 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
           tips.push({
             type: "info",
             tassello: t,
-            message: `Oro ok — ieri hai sforato, cerca di restare vicino ai 2 oggi`,
+            message: `Oro ok — ieri hai sforato, cerca di restare vicino ai ${t.target} oggi`,
             urgency: "low",
           });
         }
@@ -214,12 +215,12 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
     });
   }
 
-  // Granello rolling softMax check
-  if (granelloRolling !== undefined && GRANELLO.softMax && granelloRolling > GRANELLO.softMax) {
+  // Granello rolling softMax check — letto da granelloConfig
+  if (granelloRolling !== undefined && granelloConfig.softMax && granelloRolling > granelloConfig.softMax) {
     tips.push({
       type: "exceeded",
       tassello: GRANELLO,
-      message: `Granello oltre il tetto (${granelloRolling} su ${GRANELLO.softMax} cucchiai/7gg) — troppi grassi nella settimana`,
+      message: `Granello oltre il tetto (${granelloRolling} su ${granelloConfig.softMax} cucchiai/7gg) — troppi grassi nella settimana`,
       urgency: "high",
     });
   }
