@@ -4,7 +4,7 @@
 // HISTORY PANEL (last 7 days as a small bar chart)
 // ============================================================
 
-function HistoryPanel({ daysData, onClose, onSelectDay, onImport, isLogged }) {
+function HistoryPanel({ daysData, flagsData, onClose, onSelectDay, onImport, isLogged }) {
   const last14Days = [];
   for (let i = 13; i >= 0; i--) {
     last14Days.push(daysAgoKey(i));

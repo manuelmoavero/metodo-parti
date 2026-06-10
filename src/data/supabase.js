@@ -168,7 +168,6 @@ async function loadAllFromSupabase() {
 
   const dayRows  = await dayRes.json();
   const flagRows = await flagRes.json();
-  console.log("[supa] load OK:", dayRows.length, "giorni,", flagRows.length, "flag");
 
   const daysData  = {};
   const flagsData = {};
@@ -181,20 +180,18 @@ async function loadAllFromSupabase() {
 // Salva (upsert) un singolo giorno su day_data.
 async function saveDayToSupabase(dateKey, data) {
   const userId = supabaseAuth.getCurrentUserId();
-  if (!userId) { console.warn("[supa] saveDay: nessun userId"); return; }
+  if (!userId) return;
   try {
-    const res = await fetch(`${SUPA_URL}/rest/v1/day_data`, {
+    const res = await fetch(`${SUPA_URL}/rest/v1/day_data?on_conflict=user_id,date_key`, {
       method: "POST",
       headers: _headers({
-        "Prefer": "resolution=merge-duplicates",
+        "Prefer": "resolution=merge-duplicates,return=minimal",
       }),
       body: JSON.stringify({ user_id: userId, date_key: dateKey, data, updated_at: new Date().toISOString() }),
     });
     if (!res.ok) {
       const body = await res.text();
       console.error("[supa] saveDay FALLITO", res.status, body);
-    } else {
-      console.log("[supa] saveDay OK", dateKey);
     }
   } catch (e) {
     console.error("[supa] saveDay ERRORE rete", e);
@@ -205,13 +202,21 @@ async function saveDayToSupabase(dateKey, data) {
 async function saveFlagToSupabase(dateKey, data) {
   const userId = supabaseAuth.getCurrentUserId();
   if (!userId) return;
-  await fetch(`${SUPA_URL}/rest/v1/flag_data`, {
-    method: "POST",
-    headers: _headers({
-      "Prefer": "resolution=merge-duplicates",
-    }),
-    body: JSON.stringify({ user_id: userId, date_key: dateKey, data, updated_at: new Date().toISOString() }),
-  }).catch(() => {});
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/flag_data?on_conflict=user_id,date_key`, {
+      method: "POST",
+      headers: _headers({
+        "Prefer": "resolution=merge-duplicates,return=minimal",
+      }),
+      body: JSON.stringify({ user_id: userId, date_key: dateKey, data, updated_at: new Date().toISOString() }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("[supa] saveFlag FALLITO", res.status, body);
+    }
+  } catch (e) {
+    console.error("[supa] saveFlag ERRORE rete", e);
+  }
 }
 
 // Cancella il giorno corrente da day_data (usato da resetToday).
