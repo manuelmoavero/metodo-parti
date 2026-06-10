@@ -109,6 +109,10 @@ function App() {
   const handleImport = async (importedDays, importedFlags) => {
     const uid = supabaseAuth.getCurrentUserId();   // null se anonimo
 
+    console.log("[import] uid:", uid);
+    console.log("[import] giorni ricevuti:", Object.keys(importedDays).length);
+    console.log("[import] valore oggi nel JSON:", JSON.stringify(importedDays[todayKey()]));
+
     partiStore.replace(uid, importedDays, importedFlags);
     setDaysData(importedDays);
     setFlagsData(importedFlags);
@@ -119,6 +123,7 @@ function App() {
         ...Object.entries(importedFlags).map(([k, v]) => saveFlagToSupabase(k, v)),
       ];
       await Promise.all(uploads).catch(() => {});
+      console.log("[import] tutte le scritture completate");
     }
   };
 
