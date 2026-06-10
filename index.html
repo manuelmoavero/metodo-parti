@@ -61,6 +61,7 @@ const TASSELLI = [
     unit: "parti",
     target: 3,
     isMax: true,        // target is a ceiling, not a floor
+    softMin: 1,         // floor nutrizionale: sotto 1 parte avviso morbido (finestra 3 giorni)
     step: 0.5,
     color: "#8b6332",
     bg: "#f4e8d6",
@@ -143,6 +144,54 @@ const GRANELLO = {
   bg: "#d8e2e2",
   help: "Grassi funzionali e micronutrienti: noci, semi, mandorle. Si conta sugli ultimi 7 giorni in continuo, non a settimana fissa. Non intuitivi: cioccolato fondente >85%, tahin e burro di frutta secca 100% contano qui, non nell’Oro. Due trappole: i semi di lino vanno macinati e la chia ammollata, altrimenti passano interi senza rilasciare gli omega-3.",
 };
+
+// ===== data/config.js =====
+// data/config.js
+// Configurazione per-utente del Metodo delle Parti.
+// Contiene solo i parametri quantitativi (target, soglie, finestre di compensazione).
+// Le proprietà semantiche dei tasselli (nome, emoji, regole di valutazione, contenuti)
+// restano in tasselli.js e non sono configurabili.
+//
+// Persistenza: oggi la config vive in memoria, inizializzata da getDefaultConfig() a ogni
+// avvio. Il punto di lettura è predisposto per diventare "leggi da Supabase, fallback al
+// default" senza toccare i consumatori.
+
+function getDefaultConfig() {
+  return {
+    tasselli: {
+      energia: { target: 3, softMin: 1 },
+      forza:   { target: 2, softMin: 1.5, softMax: 2.5 },
+      foglia:  { target: 1.5 },   // isMin, nessun tetto
+      colore:  { target: 1.5 },   // isMin, nessun tetto
+      frutto:  { target: 2, softMax: 4 },
+      oro:     { target: 2, softMin: 1, softMax: 5 },
+    },
+    granello: {
+      target: 7,
+      softMax: 14,
+      windowDays: 7,
+    },
+    compensation: {
+      lookbackDays: 5,
+      // cap derivato dal motore: softMax ?? target del tassello corrispondente
+      // perDayReduction, spreadDays, floor sono i soli parametri propri della compensazione
+      energia: { perDayReduction: 0.5, spreadDays: 2 },
+      forza:   { perDayReduction: 0.5, spreadDays: 1, floor: 1.5 },
+      oro:     { perDayReduction: 0.5, spreadDays: 2, floor: 1 },
+      frutto:  { perDayReduction: 1,   spreadDays: 1, floor: 1 },
+    },
+  };
+}
+
+// Fonde i parametri quantitativi della config con gli oggetti semantici di TASSELLI.
+// Chiamato una volta in App.js; il risultato sostituisce TASSELLI in tutto il wiring.
+// Panel e componenti ricevono oggetti identici nella forma, ignari della config.
+function mergeTasselli(tasselli, config) {
+  return tasselli.map(t => ({
+    ...t,
+    ...(config.tasselli[t.id] || {}),
+  }));
+}
 
 // ===== data/prontuario.js =====
 // data/prontuario.js
@@ -721,72 +770,29 @@ function dateKeyDaysBefore(dateKey, n) {
 //
 // We return the net adjustment that should apply to the target day, in
 // the form of an object { tasselloId: { delta, reason, sourceDate } }.
+//
+// Il cap di ogni tassello è derivato dalla config: softMax ?? target.
+// Non è duplicato qui: se il target per-utente cambia, il cap segue automaticamente.
 
-function computeCompensation(daysData, targetDateKey) {
-  // Look back at most LOOKBACK_DAYS days to find recent overflows
-  const LOOKBACK_DAYS = 5;
-
+function computeCompensation(daysData, targetDateKey, userConfig) {
+  const compCfg = userConfig.compensation;
+  const lookbackDays = compCfg.lookbackDays;
   const adjustments = {};
 
-  // Energia: if exceeded (>3), spread -0.5/day over next 2 days
-  computeForTassello(
-    daysData,
-    targetDateKey,
-    LOOKBACK_DAYS,
-    {
-      id: "energia",
-      cap: 3,
-      perDayReduction: 0.5,
-      spreadDays: 2,
-    },
-    adjustments
-  );
-
-  // Forza: if exceeded (>2.5), spread -0.5 over 1 day (next day only),
-  // but never push target below 1.5
-  computeForTassello(
-    daysData,
-    targetDateKey,
-    LOOKBACK_DAYS,
-    {
-      id: "forza",
-      cap: 2.5,
-      perDayReduction: 0.5,
-      spreadDays: 1,
-      floor: 1.5,
-    },
-    adjustments
-  );
-
-  // Oro: if exceeded (>5), reduce 0.5 over 2 days, floor at 1
-  computeForTassello(
-    daysData,
-    targetDateKey,
-    LOOKBACK_DAYS,
-    {
-      id: "oro",
-      cap: 5,
-      perDayReduction: 0.5,
-      spreadDays: 2,
-      floor: 1,
-    },
-    adjustments
-  );
-
-  // Frutto: if exceeded (>4 sweet), reduce 1 unit next day, floor 1
-  computeForTassello(
-    daysData,
-    targetDateKey,
-    LOOKBACK_DAYS,
-    {
-      id: "frutto",
-      cap: 4,
-      perDayReduction: 1,
-      spreadDays: 1,
-      floor: 1,
-    },
-    adjustments
-  );
+  const ids = ["energia", "forza", "oro", "frutto"];
+  for (const id of ids) {
+    const rule = compCfg[id];
+    if (!rule) continue;
+    const tCfg = userConfig.tasselli[id];
+    const cap = tCfg.softMax != null ? tCfg.softMax : tCfg.target;
+    computeForTassello(
+      daysData,
+      targetDateKey,
+      lookbackDays,
+      { id, cap, ...rule },
+      adjustments
+    );
+  }
 
   return adjustments;
 }
@@ -927,10 +933,12 @@ function daysBelow(daysData, tasselloId, target, windowDays, todayKey) {
   return count;
 }
 
-function suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags) {
+// tasselli: array mergiato (TASSELLI + config), già con i valori per-utente
+// granelloConfig: userConfig.granello
+function suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags, tasselli, granelloConfig) {
   const tips = [];
 
-  TASSELLI.forEach((t) => {
+  tasselli.forEach((t) => {
     const consumed = today[t.id] || 0;
     const target = adjustedTargets[t.id] ?? t.target;
 
@@ -955,7 +963,7 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
         });
       }
     } else if (t.isMax) {
-      // Energia — tetto (max 3) con floor nutrizionale morbido (min 1)
+      // Energia — tetto con floor nutrizionale morbido (softMin)
       if (consumed > target) {
         tips.push({
           type: "exceeded",
@@ -964,7 +972,7 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
           urgency: "high",
         });
       } else if (t.softMin != null && consumed < t.softMin) {
-        // Floor: sotto 1 parte → avviso morbido con finestra 3 giorni (stessa logica isMin)
+        // Floor: sotto softMin → avviso morbido con finestra 3 giorni (stessa logica isMin)
         const missing = +(t.softMin - consumed).toFixed(1);
         const prevDaysBelow = daysBelow(daysData, t.id, t.softMin, 2, currentDate);
         const urgency = prevDaysBelow < 0 ? null : prevDaysBelow >= 2 ? "high" : prevDaysBelow === 1 ? "med" : "low";
@@ -1036,14 +1044,13 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
         });
       }
       } else if (t.id === "oro") {
-      // Oro — softMin a 1 cucchiaio, softMax a 5
-      // Controlla se ieri ha sforato il target base (> 2), indipendente da adjustedTargets
-      const ORO_TARGET_BASE = 2;
+      // Oro — softMin e softMax letti da t (già mergiati dalla config)
+      // Controlla se ieri ha sforato il target base, letto da t.target
       const ieriKey = dateKeyDaysBefore(currentDate, 1);
       const ieriDay = daysData[ieriKey];
       const ieriOro = ieriDay ? (ieriDay.oro || 0) : 0;
       const ieriHasData = ieriDay && Object.values(ieriDay).some(v => v > 0);
-      const ieriSforato = ieriHasData && ieriOro > ORO_TARGET_BASE;
+      const ieriSforato = ieriHasData && ieriOro > t.target;
 
       if (consumed < target) {
         const missing = +(target - consumed).toFixed(1);
@@ -1054,7 +1061,7 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
           message: belowMin
             ? `Manca ${missing} ${t.unit} di ${t.label} — sotto il minimo funzionale (1 cucchiaio)`
             : ieriSforato
-            ? `Manca ${missing} ${t.unit} di ${t.label} — ieri hai sforato, oggi prova a restare sui 2`
+            ? `Manca ${missing} ${t.unit} di ${t.label} — ieri hai sforato, oggi prova a restare sui ${t.target}`
             : `Manca ${missing} ${t.unit} di ${t.label}`,
           urgency: belowMin ? "high" : "med",
         });
@@ -1064,7 +1071,7 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
           tips.push({
             type: "info",
             tassello: t,
-            message: `Oro ok — ieri hai sforato, cerca di restare vicino ai 2 oggi`,
+            message: `Oro ok — ieri hai sforato, cerca di restare vicino ai ${t.target} oggi`,
             urgency: "low",
           });
         }
@@ -1111,12 +1118,12 @@ function suggestions(today, adjustedTargets, daysData, currentDate, granelloRoll
     });
   }
 
-  // Granello rolling softMax check
-  if (granelloRolling !== undefined && GRANELLO.softMax && granelloRolling > GRANELLO.softMax) {
+  // Granello rolling softMax check — letto da granelloConfig
+  if (granelloRolling !== undefined && granelloConfig.softMax && granelloRolling > granelloConfig.softMax) {
     tips.push({
       type: "exceeded",
       tassello: GRANELLO,
-      message: `Granello oltre il tetto (${granelloRolling} su ${GRANELLO.softMax} cucchiai/7gg) — troppi grassi nella settimana`,
+      message: `Granello oltre il tetto (${granelloRolling} su ${granelloConfig.softMax} cucchiai/7gg) — troppi grassi nella settimana`,
       urgency: "high",
     });
   }
@@ -2029,9 +2036,9 @@ function DonutChart({ today, adjustedTargets }) {
 
 // ── SuggestionsPanel ─────────────────────────────────────────────────────────
 
-function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags }) {
-  const tips = suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags);
-  const closedCount = TASSELLI.filter((t) => {
+function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags, tasselli, granelloConfig }) {
+  const tips = suggestions(today, adjustedTargets, daysData, currentDate, granelloRolling, todayFlags, tasselli, granelloConfig);
+  const closedCount = tasselli.filter((t) => {
     const v = today[t.id] || 0;
     const target = adjustedTargets[t.id] ?? t.target;
     if (t.isMin) return v >= target;
@@ -2040,7 +2047,7 @@ function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, grane
     return v >= target;
   }).length;
 
-  const allDone = closedCount === TASSELLI.length;
+  const allDone = closedCount === tasselli.length;
 
   return (
     <div
@@ -2108,7 +2115,7 @@ function SuggestionsPanel({ today, adjustedTargets, daysData, currentDate, grane
                   const ieriDay = daysData[ieriKey];
                   const ieriOro = ieriDay ? (ieriDay.oro || 0) : 0;
                   const ieriHasData = ieriDay && Object.values(ieriDay).some(v => v > 0);
-                  const ieriSforatoOro = ieriHasData && ieriOro > 2;
+                  const ieriSforatoOro = ieriHasData && ieriOro > (tasselli.find(t => t.id === "oro")?.target ?? 2);
                   return ieriSforatoOro
                     ? "Tutti i tasselli coperti. Ieri hai sforato l'Oro — oggi ci sei riuscito, ottimo."
                     : "Tutti i tasselli coperti. Il tuo corpo ti ringrazia.";
@@ -2912,6 +2919,12 @@ function SpesaPanel({ onClose }) {
 // ============================================================
 
 function App() {
+  // Config per-utente: oggi sempre da default; domani potrà venire da Supabase
+  // senza toccare nessun consumatore (tasselli, compensation, suggestions leggono da qui)
+  const userConfig = getDefaultConfig();
+  // Tasselli semantici + parametri quantitativi per-utente fusi insieme
+  const tasselli = mergeTasselli(TASSELLI, userConfig);
+
   // State
   const [currentDate, setCurrentDate] = useState(todayKey());
   const [daysData, setDaysData] = useState({});
@@ -3027,7 +3040,7 @@ function App() {
   const today = daysData[currentDate] || {};
   const isToday = currentDate === todayKey();
   const compensation = useMemo(
-    () => (isToday ? computeCompensation(daysData, currentDate) : {}),
+    () => (isToday ? computeCompensation(daysData, currentDate, userConfig) : {}),
     [daysData, currentDate, isToday]
   );
 
@@ -3035,7 +3048,7 @@ function App() {
   // compensation[id] is now an object { delta, reason, sourceDates, remainingDebt }
   const adjustedTargets = useMemo(() => {
     const out = {};
-    TASSELLI.forEach((t) => {
+    tasselli.forEach((t) => {
       const adj = compensation[t.id];
       if (adj != null) {
         const newTarget = t.target + adj.delta;
@@ -3056,7 +3069,7 @@ function App() {
   // Streak warnings per ogni tassello: "high" | "med" | "low" | null
   const streakWarnings = useMemo(() => {
     const out = {};
-    TASSELLI.forEach((t) => {
+    tasselli.forEach((t) => {
       const consumed = today[t.id] || 0;
       const target = adjustedTargets[t.id] ?? t.target;
       const isBelowToday = consumed < target;
@@ -3310,6 +3323,8 @@ function App() {
             currentDate={currentDate}
             granelloRolling={rollingGranello(daysData, currentDate)}
             todayFlags={flagsData[currentDate] || {}}
+            tasselli={tasselli}
+            granelloConfig={userConfig.granello}
           />
         )}
 
@@ -3335,7 +3350,7 @@ function App() {
                 Target rivisti per il rientro
               </div>
               {Object.entries(compensation).map(([id, adj]) => {
-                const t = TASSELLI.find((x) => x.id === id);
+                const t = tasselli.find((x) => x.id === id);
                 const newTarget = adjustedTargets[id];
                 return (
                   <div
@@ -3363,7 +3378,7 @@ function App() {
         )}
 
         {/* Counters */}
-        {TASSELLI.map((t) => {
+        {tasselli.map((t) => {
           const inlineFlag = FLAGS.find((f) => f.tasselloId === t.id);
           const flagChip = inlineFlag ? (
             <FlagChip

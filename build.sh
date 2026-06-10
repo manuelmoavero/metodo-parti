@@ -21,6 +21,7 @@ OUT="index.html"
 FILES=(
   icons.js
   data/tasselli.js
+  data/config.js
   data/prontuario.js
   data/guida.js
   data/flags.js
