@@ -8,7 +8,7 @@
 // è stabile e sufficiente per le operazioni che usiamo.
 
 const SUPA_URL  = "https://ojhqieknxhsrxyvdowja.supabase.co";
-const SUPA_KEY  = "sb_publishable_W3axOEhDUPPdMZ1tKXtCug_l-35rHWGXkfFnc_MwHco8";
+const SUPA_KEY  = "sb_publishable_W3axOEhDUPPdMZ1tKXtCug_l-35rcw4";
 
 // ── Token in memoria (non in localStorage per sicurezza) ──────────────────
 let _accessToken  = null;
