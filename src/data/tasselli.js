@@ -11,7 +11,7 @@ const TASSELLI = [
     unit: "parti",
     target: 3,
     isMax: true,        // target is a ceiling, not a floor
-    softMin: 1,         // floor nutrizionale: sotto 1 parte/giorno per 3gg → avviso (glicogeno)
+    softMin: 1,         // floor nutrizionale: sotto 1 parte avviso morbido (finestra 3 giorni)
     step: 0.5,
     color: "#8b6332",
     bg: "#f4e8d6",
