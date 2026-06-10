@@ -6,6 +6,7 @@
 
 function ProntuarioPanel({ onClose, onAddItem, addedLabel }) {
   const [query, setQuery] = useState("");
+  const [classificatoreOpen, setClassificatoreOpen] = useState(false);
   const [addedItems, setAddedItems] = useState({});
 
   // Le sezioni partono collassate a ogni apertura del prontuario.
@@ -62,6 +63,26 @@ function ProntuarioPanel({ onClose, onAddItem, addedLabel }) {
       subtitle="Cerca un alimento o sfoglia per categoria. Tap su una riga per vedere la classificazione."
       onClose={onClose}
     >
+      {/* Ingresso al classificatore guidato */}
+      <button
+        onClick={() => setClassificatoreOpen(true)}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          marginBottom: "12px",
+          borderRadius: "10px",
+          border: "1px dashed rgba(138, 90, 44, 0.4)",
+          background: "transparent",
+          cursor: "pointer",
+          color: "var(--ink)",
+          fontSize: "13px",
+          fontFamily: "var(--font-body)",
+          fontWeight: 600,
+        }}
+      >
+        Non lo trovi? Classifichiamolo insieme →
+      </button>
+
       {/* Search box */}
       <div
         style={{
@@ -136,6 +157,24 @@ function ProntuarioPanel({ onClose, onAddItem, addedLabel }) {
           <span style={{ fontSize: "11px" }}>
             Usa il principio dei 5 secondi: lista ingredienti corta = pieno valore nel tassello dominante, lista lunga = metà valore.
           </span>
+          <br />
+          <button
+            onClick={() => setClassificatoreOpen(true)}
+            style={{
+              marginTop: "12px",
+              padding: "9px 16px",
+              borderRadius: "10px",
+              border: "none",
+              background: "#8a5a2c",
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: "13px",
+              fontWeight: 700,
+              fontFamily: "var(--font-body)",
+            }}
+          >
+            Classifichiamolo insieme
+          </button>
         </div>
       )}
 
@@ -306,6 +345,15 @@ function ProntuarioPanel({ onClose, onAddItem, addedLabel }) {
         </div>
         );
       })}
+
+      {/* Classificatore guidato, overlay sopra il prontuario */}
+      {classificatoreOpen && (
+        <ClassificatorePanel
+          onClose={() => setClassificatoreOpen(false)}
+          onAddItem={onAddItem}
+          addedLabel={addedLabel}
+        />
+      )}
     </SlidePanel>
   );
 }

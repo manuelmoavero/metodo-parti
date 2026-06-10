@@ -24,11 +24,13 @@ FILES=(
   data/guida.js
   data/flags.js
   data/spesa.js
+  data/classificatore.js
   logic/dates.js
   logic/compensation.js
   logic/flags-engine.js
   logic/suggestions.js
   logic/parse-item.js
+  logic/classificatore-engine.js
   ui/SlidePanel.js
   components/FlagChip.js
   components/Counter.js
@@ -37,6 +39,7 @@ FILES=(
   components/SuggestionsPanel.js
   panels/HistoryPanel.js
   panels/GuidaPanel.js
+  panels/ClassificatorePanel.js
   panels/ProntuarioPanel.js
   panels/SpesaPanel.js
   panels/LoginPanel.js

@@ -516,6 +516,10 @@ const PRONTUARIO = [
       { name: "Cereali da colazione integrali", portion: "40-50g", value: "1 Energia", slots: ["energia"], note: "Solo quelli integrali senza zuccheri aggiunti (muesli base, crusca, avena soffiata). I cereali zuccherati, glassati o al cioccolato aggiungono 0,5 Oro per i grassi/zuccheri nascosti. Regola rapida: lo zucchero non deve essere al primo o secondo posto negli ingredienti." },
       { name: "Riso soffiato, corn flakes (senza zucchero)", portion: "30g", value: "1 Energia", slots: ["energia"], note: "Alto indice glicemico anche nella versione pura: si assorbe rapidamente. Versioni al cioccolato o mellate: aggiungi 0,5 Oro. Abbina sempre a Forza o Granello per rallentare l'assorbimento." },
       { name: "Granola", portion: "50g", value: "1 Energia + 0,5 Oro", slots: ["energia", "oro"], note: "Fiocchi d'avena tostati con olio e dolcificante: la parte Oro viene dai grassi e dagli zuccheri usati nella cottura. Se contiene molta frutta secca aggiungi 0,5 Granello. La versione casalinga (poco olio, poca miele) pesa meno." },
+      { name: "Quinoa, grano saraceno, miglio, amaranto", portion: "70g a crudo / quarto di piatto cotto", value: "1 Energia", slots: ["energia"], note: "Sembrano semi ma sono cereali (o pseudocereali) a tutti gli effetti: amido dominante. Buon profilo di micronutrienti e, per quinoa e saraceno, proteine migliori della media dei cereali, ma restano Energia, non Forza." },
+      { name: "Polenta", portion: "quarto di piatto", value: "1 Energia", slots: ["energia"], note: "Mais macinato: amido puro. La versione condita (formaggio, burro) aggiunge 0,5-1 Oro a seconda della ricchezza visibile." },
+      { name: "Gnocchi di patate", portion: "porzione normale (180-200g)", value: "1 Energia", slots: ["energia"], note: "Patate + farina: doppia fonte di amido ma porzione normale = 1 Energia. Porzione abbondante da ristorante: 1,5. Il condimento si conta a parte (sugo = Colore, burro e formaggio = Oro)." },
+      { name: "Platano (banana da cottura)", portion: "mezzo platano cotto", value: "1 Energia", slots: ["energia"], note: "Sembra frutta, è amido: cugino della patata, si mangia cotto. Non conta come Frutto. Fritto (tostones, chips): aggiungi 0,5 Oro." },
       { name: "Pizza (2 fette medie)", portion: "~200g", value: "1 Energia + 1 Oro", slots: ["energia", "oro"], note: "La base è Energia (farina), il condimento è Oro (olio + mozzarella). Pizza vegana senza formaggio: 1 Energia + 0,5 Oro. Pizza con abbondante formaggio o bordo ripieno: 1 Energia + 1,5 Oro. La pizza non è un'insidia: è un composito da conteggiare." },
     ],
   },
@@ -538,6 +542,8 @@ const PRONTUARIO = [
       { name: "Lievito nutrizionale", portion: "2 cucchiai (15g)", value: "0,5 Forza", slots: ["forza"], note: "Proteina completa con buon profilo amminoacidico (~8g/15g). Cerca la versione 'rinforzata con B12': è una delle poche fonti alimentari di B12 per vegani, contiene anche zinco (~2mg/15g). Usalo su pasta, zuppe, insalate al posto del parmigiano." },
       { name: "Pasta di legumi (ceci, lenticchie, piselli)", portion: "80g a crudo", value: "1 Forza + 0,5 Energia", slots: ["forza", "energia"], note: "Composito: le proteine dei legumi (≥20g/100g) portano a 1 Forza; l'amido del formato pasta aggiunge 0,5 Energia. Non classificarla come sola Forza o sola Energia: ha entrambe le componenti. Ottima per chi vuole più proteine in un piatto unico." },
       { name: "Farina di legumi (ceci, lenticchie, soia)", portion: "50g", value: "1 Forza + 0,5 Energia", slots: ["forza", "energia"], note: "Stesso principio della pasta di legumi: proteina alta + quota amido. Usata in farinata, crêpe salate o impasti. 0,5 Energia per la quota amido, 1 Forza per le proteine." },
+      { name: "Fave fresche", portion: "quarto di piatto sgranate", value: "1 Forza", slots: ["forza"], note: "Legume fresco di stagione: proteine dense come i legumi secchi cotti. Crude in primavera o cotte. Attenzione solo per chi ha favismo (deficit G6PD): in quel caso vanno evitate del tutto." },
+      { name: "Tofu seta (silken)", portion: "100g", value: "0,5 Forza", slots: ["forza"], note: "Versione morbida e acquosa del tofu: circa metà delle proteine del tofu compatto a parità di peso. Conta 0,5 Forza, non 1. Ottimo per creme, dolci e salse, ma non può essere l'unica Forza della giornata." },
     ],
   },
   {
@@ -566,6 +572,8 @@ const PRONTUARIO = [
       { name: "Asparagi", portion: "150-200g (1 mazzo piccolo)", value: "1 Colore", slots: ["colore"], note: "Ricchi di folati, vitamina K e asparagina (effetto diuretico naturale). Stagione primaverile. Cottura breve al vapore o in padella per preservare i nutrienti." },
       { name: "Carciofi", portion: "2 carciofi medi", value: "1 Colore", slots: ["colore"], note: "Ricchi di cinarina (supporta la funzione epatica, aiuta a ridurre trigliceridi e colesterolo), inulina prebiotica e ferro. Fonte vegetale di ferro sottovalutata: abbina vitamina C per massimizzare l'assorbimento." },
       { name: "Radicchio rosso, radicchio di Treviso", portion: "porzione abbondante", value: "1 Colore", slots: ["colore"], note: "I pigmenti rosso-viola sono antocianine antiossidanti: per questo vanno nel Colore e non nella Foglia. L'amaro tipico (lattucina, inulina) è benefico per fegato e intestino. Ottimo crudo o grigliato." },
+      { name: "Topinambur", portion: "porzione da contorno", value: "1 Colore", slots: ["colore"], note: "Inganna: fa il purè come la patata, ma il suo carboidrato è inulina (fibra prebiotica), non amido digeribile. Conta Colore, non Energia. Purè ricco al ristorante (panna, burro, olio abbondante): aggiungi 0,5 Oro. Nota pratica: l'inulina può dare gonfiore se non si è abituati, inizia con porzioni piccole." },
+      { name: "Jackfruit", portion: "porzione da contorno o da secondo", value: "1 Colore", slots: ["colore"], note: "Nei ristoranti veg imita la carne sfilacciata (pulled), ma è quasi privo di proteine: NON è una Forza. Se è il tuo secondo, la Forza della giornata va coperta altrove (legumi, tofu). Cotto in salse ricche: aggiungi 0,5 Oro." },
     ],
   },
   {
@@ -581,6 +589,10 @@ const PRONTUARIO = [
       { name: "Mango, papaia", portion: "1 fetta generosa (150g)", value: "1 Frutto", slots: ["frutto"], note: "Mango è ricco di betacarotene (ma viene classificato come Frutto, non Colore, per il profilo metabolico degli zuccheri). La papaia contiene papaina, enzima digestivo. Più zuccherini della frutta temperata: tieniti a 1 porzione." },
       { name: "Datteri, fichi secchi", portion: "2-3 pezzi", value: "0,5 Frutto", slots: ["frutto"], note: "Frutta essiccata: gli zuccheri sono concentrati e il volume è ingannevolmente piccolo. 2-3 datteri o fichi secchi equivalgono a circa metà frutto fresco. Ottimi come dolcificante naturale nelle ricette." },
       { name: "Cachi (kaki)", portion: "1 frutto maturo", value: "1 Frutto", slots: ["frutto"], note: "Frutto autunnale italiano. Ricchi di betacarotene e vitamina C. Due varietà: il Fuyu si mangia anche sodo, l'Hachiya solo completamente morbido (altrimenti astringente per i tannini)." },
+      { name: "Melone, anguria, ananas (a fette)", portion: "2 fette medie", value: "1 Frutto", slots: ["frutto"], note: "Regola delle fette: per la frutta che si taglia, 2 fette medie = 1 Frutto. Una fetta sottile da buffet vale 0,5. Sono frutti molto acquosi: il volume inganna in eccesso, non in difetto." },
+      { name: "Spremuta o estratto fresco", portion: "1 bicchiere (200ml)", value: "0,5 Frutto", slots: ["frutto"], note: "Senza la fibra intatta gli zuccheri si assorbono in fretta: un bicchiere vale metà di un frutto intero, anche se dentro ci sono 2-3 arance. Il frutto intero resta sempre la scelta migliore. I succhi industriali sono un'altra cosa: vedi Insidie." },
+      { name: "Frutta essiccata (uvetta, albicocche, mango)", portion: "1 manciata piccola", value: "0,5 Frutto", slots: ["frutto"], note: "Come datteri e fichi secchi: zuccheri concentrati, volume ingannevolmente piccolo, acqua zero. Una manciata piccola vale 0,5 Frutto. Quella ricoperta di zucchero o candita passa a 0,5 Oro." },
+      { name: "Frutta sciroppata", portion: "3-4 pezzi con poco sciroppo", value: "0,5 Frutto + 0,5 Oro", slots: ["frutto", "oro"], note: "La frutta c'è ma è immersa in zucchero: metà valore Frutto più la quota Oro dello sciroppo. Scolata bene pesa meno. Quella al naturale (senza zuccheri aggiunti) vale 0,5-1 Frutto pieno." },
     ],
   },
   {
@@ -613,6 +625,11 @@ const PRONTUARIO = [
       { name: "Birra (media, 0,3L)", portion: "1 media", value: "1 Oro", slots: ["oro"], note: "Come il vino: caloria accessoria. Piccola (0,2L) = 0,5 Oro." },
       { name: "Latte di cocco (in lattina, da cucina)", portion: "50ml (3 cucchiai)", value: "1 Oro", slots: ["oro"], note: "Grassi saturi alti (acido laurico): caloria accessoria densa. Quello in lattina per cucinare è molto più concentrato del latte di cocco da bere. Con il profilo trigliceridi alti, usalo con misura." },
       { name: "Pesto (basilico, olio, pinoli)", portion: "1 cucchiaio colmo", value: "0,5 Oro", slots: ["oro"], note: "Olio + frutta secca (pinoli o noci) + eventuale formaggio: va nell'Oro. I pinoli contribuiscono come Granello ma in piccola quantità: 1 cucchiaio conta solo come Oro. Versione vegana (senza formaggio) identica." },
+      { name: "Yogurt di cocco", portion: "1 vasetto (125g)", value: "0,5 Oro", slots: ["oro"], note: "Sembra lo yogurt di soia ma è grasso saturo quasi senza proteine: NON conta come Forza. Se lo mangi al posto dello yogurt di soia, la Forza complementare va recuperata altrove." },
+      { name: "Cocco fresco", portion: "1 fetta", value: "0,5 Oro", slots: ["oro"], note: "È frutta solo di nome: dominano i grassi saturi, gli zuccheri sono pochi. Non conta come Frutto. Il cocco essiccato (rapè) è ancora più concentrato: 2 cucchiai = 0,5 Oro." },
+      { name: "Formaggio vegetale di frutta secca (anacardi fermentati)", portion: "30g (2 cucchiai)", value: "0,5 Granello + 0,5 Oro", slots: ["granello", "oro"], note: "Quello artigianale fermentato è frutta secca trasformata: metà Granello (grassi funzionali degli anacardi) e metà Oro (densità calorica). Niente a che vedere con la mozzarella vegana industriale a base di amidi, che è solo Oro." },
+      { name: "Maionese vegana", portion: "1 cucchiaio", value: "0,5 Oro", slots: ["oro"], note: "Base olio, come quella classica: la soia o l'aquafaba sono solo l'emulsionante. Si conta come l'olio: a cucchiai, nell'Oro." },
+      { name: "Sciroppo d'acero, miele, zucchero", portion: "1 cucchiaio", value: "0,5 Oro", slots: ["oro"], note: "Zuccheri semplici concentrati: si contano a cucchiai nell'Oro, qualunque sia l'origine. Lo sciroppo d'acero ha qualche minerale in più ma il conto non cambia. Un goccio (1 cucchiaino) su una colazione si può arrotondare a zero." },
     ],
   },
   {
@@ -623,6 +640,8 @@ const PRONTUARIO = [
       { name: "Cornetto o brioche da bar", portion: "1 unità", value: "1 Energia + 0,5 Oro", slots: ["energia", "oro"], note: "Farina raffinata + grassi idrogenati + zuccheri. Penale +0,5 Oro per la componente grassa industriale nascosta." },
       { name: "Patatine fritte in sacchetto", portion: "30g", value: "1 Energia + 1,5 Oro", slots: ["energia", "oro"], note: "Amido (Energia) + grasso saturo di frittura (1 Oro base) + penale +0,5 Oro per l'ultra-trasformazione. Triplo impatto." },
       { name: "Bibite zuccherate o succhi industriali", portion: "200ml", value: "1 Energia + 0,5 Oro", slots: ["energia", "oro"], note: "Zuccheri liquidi + penale ultra-trasformati. Nessuna fibra: picco glicemico diretto. Non contano come Frutto." },
+      { name: "Latte di riso o avena", portion: "1 bicchiere (200ml)", value: "0,5 Energia", slots: ["energia"], note: "Niente proteine: NON sostituisce il latte di soia nella Forza. È acqua e carboidrati del cereale: mezzo punto Energia a bicchiere. Quello di avena 'barista' ha olio aggiunto: considera 0,5 Energia + una punta di Oro se ne bevi più bicchieri." },
+      { name: "Latte di mandorla", portion: "1 bicchiere (200ml)", value: "0 tasselli", slots: [], note: "Le versioni commerciali hanno il 2-3% di mandorle: in pratica acqua aromatizzata. Non conta come Forza, non conta come Granello. Versioni zuccherate: 0,5 Oro. Per la Forza complementare serve il latte di soia." },
     ],
   },
   {
@@ -991,6 +1010,149 @@ const SPESA = [
     emoji: "📦",
     testo: "Questi durano mesi e non devi ricomprarli ogni settimana:\n\nLegumi secchi: lenticchie, ceci, fagioli in pacco da 500g.\nCereali: avena, quinoa, riso integrale.\nConserve: pelati, passata, ceci/fagioli in scatola di riserva.\nSemi: lino (macinato e conservato in frigo), chia, zucca, girasole.\nFrutta secca: noci, mandorle.\nTahin: vasetto da 250-300g.\nOlio EVO: almeno una bottiglia di scorta.\nAlghe: nori in fogli, spirulina in polvere.\nAcqua calcica: se la bevi, prendila con Ca ≥250 mg/L.",
   },
+];
+
+// ===== data/classificatore.js =====
+// data/classificatore.js
+// Albero decisionale del classificatore guidato (CLASSIFICATORE).
+// Sole costanti: nessun React, nessuna dipendenza.
+//
+// Struttura: nodi con domanda e opzioni. Ogni opzione può:
+//   - next: id del nodo successivo, oppure "qty" (passo quantità) o "esito"
+//   - add: tasselli da accumulare (es. { energia: 1 })
+//   - factor: moltiplicatore di dimensione (ramo preparazioni fuse)
+//   - unit: il riferimento di quantità mostrato nel passo finale
+//   - hint: esempi concreti sotto l'etichetta
+// I nodi possono avere una "nota" mostrata sotto la domanda.
+
+const CLASSIFICATORE = {
+  start: "tipo",
+  nodes: {
+
+    // ── Bivio iniziale ──────────────────────────────────────────────
+    tipo: {
+      domanda: "Cosa devi valutare?",
+      nota: "Prima troviamo il tassello, poi la quantità. Nel dubbio tra due strade simili, scegli e vai: il metodo regge l'approssimazione.",
+      opzioni: [
+        { label: "Un alimento singolo", hint: "un frutto, una verdura, un ingrediente", next: "s_frutta" },
+        { label: "Un piatto con componenti distinguibili", hint: "poke, pasta col sugo, zuppa, buddha bowl", next: "quarti" },
+        { label: "Una preparazione fusa", hint: "torta, pizza ripiena, sformato, fritto, gateau", next: "c_dimensione" },
+      ],
+    },
+
+    // ── Ramo 1: alimento singolo ────────────────────────────────────
+    s_frutta: {
+      domanda: "È frutta fresca?",
+      opzioni: [
+        { label: "Sì", next: "s_frutta_tipo" },
+        { label: "No", next: "s_verdura" },
+      ],
+    },
+    s_frutta_tipo: {
+      domanda: "Che tipo di frutto?",
+      opzioni: [
+        { label: "Frutto grande", hint: "mela, arancia, banana, pera: 1 pezzo = 1 unità", add: { frutto: 1 }, unit: "1 frutto intero", next: "qty" },
+        { label: "Frutti piccoli", hint: "fragole, ciliegie, uva, frutti di bosco", add: { frutto: 1 }, unit: "1 manciata", next: "qty" },
+        { label: "Si taglia a fette", hint: "melone, anguria, ananas", add: { frutto: 1 }, unit: "2 fette medie", next: "qty" },
+        { label: "Grassi dominanti", hint: "avocado, cocco: contano Oro, non Frutto", add: { oro: 1 }, unit: "mezzo avocado o 1 fetta di cocco", next: "qty" },
+      ],
+    },
+    s_verdura: {
+      domanda: "È una verdura o un ortaggio?",
+      opzioni: [
+        { label: "Sì", next: "s_verdura_tipo" },
+        { label: "No", next: "s_amido" },
+      ],
+    },
+    s_verdura_tipo: {
+      domanda: "Com'è fatta?",
+      nota: "Il dubbio Foglia/Colore non costa nulla: hanno gli stessi target e lo sforo è libero per entrambi. Scegli quello che ti sembra e vai avanti. L'unico bivio che conta è il terzo: se sazia come il pane, è Energia.",
+      opzioni: [
+        { label: "Leggera, acquosa, verde o bianca", hint: "lattuga, sedano, finocchio, cetriolo, germogli", add: { foglia: 1 }, unit: "un quarto di piatto", next: "qty" },
+        { label: "Colore vivo o struttura compatta", hint: "carote, broccoli, melanzane, peperoni, funghi, topinambur", add: { colore: 1 }, unit: "un quarto di piatto", next: "qty" },
+        { label: "Farinosa, sazia come il pane", hint: "patate, batate, platano", add: { energia: 1 }, unit: "un quarto di piatto (circa 150g, 2 patate piccole)", next: "qty" },
+      ],
+    },
+    s_amido: {
+      domanda: "È farinoso o amidaceo? Sazia come pane o pasta?",
+      nota: "Cereali, pane, pasta, riso, polenta, couscous, ma anche pseudocereali come quinoa e grano saraceno: sembrano semi, sono Energia.",
+      opzioni: [
+        { label: "Sì", add: { energia: 1 }, unit: "un quarto di piatto, o 1 fetta di pane", next: "qty" },
+        { label: "No", next: "s_proteina" },
+      ],
+    },
+    s_proteina: {
+      domanda: "È una fonte proteica?",
+      opzioni: [
+        { label: "Sì, densa", hint: "legumi, tofu, tempeh, seitan, pesce, 2 uova", add: { forza: 1 }, unit: "un quarto di piatto denso", next: "qty" },
+        { label: "Sì, ma leggera", hint: "yogurt di soia, latte di soia: contano metà e non possono essere l'unica Forza del giorno", add: { forza: 0.5 }, unit: "1 vasetto o 1 bicchiere", next: "qty" },
+        { label: "No", next: "s_granello" },
+      ],
+    },
+    s_granello: {
+      domanda: "È frutta secca, semi, o una crema 100%?",
+      nota: "Noci, mandorle, semi di lino o chia, tahin, burro di arachidi senza zuccheri.",
+      opzioni: [
+        { label: "Sì", add: { granello: 1 }, unit: "1 cucchiaio, o 1 manciata piccola", next: "qty" },
+        { label: "No", add: { oro: 1 }, unit: "1 cucchiaio (olio) o una porzione piccola", next: "qty" },
+      ],
+    },
+
+    // ── Ramo 2: piatto con componenti distinguibili ─────────────────
+    quarti: {
+      domanda: "Usa la regola dei quarti",
+      nota: "Guarda il piatto e dividilo a quarti con gli occhi: ogni quarto va al suo tassello. Esempio con un poke: il riso è 1 Energia, il tofu o il salmone è 1 Forza, l'avocado e le salse sono 0,5-1 Oro, le verdure colorate sono Colore. Somma ogni componente per quello che è. Se un componente ti lascia il dubbio, valutalo da solo qui sotto.",
+      opzioni: [
+        { label: "Valuta un componente singolo", next: "s_frutta" },
+      ],
+    },
+
+    // ── Ramo 3: preparazione fusa (si parte dalla dimensione) ───────
+    c_dimensione: {
+      domanda: "Quanto è grande?",
+      nota: "Nelle preparazioni fuse la dimensione conta quanto il contenuto: un arancino vale come due supplì.",
+      opzioni: [
+        { label: "Piccolo: sta nel palmo", hint: "supplì, pasticcino, tramezzino, mini quiche", factor: 0.5, next: "c_base" },
+        { label: "Medio: una fetta o un pezzo da bar", hint: "trancio di pizza, fetta di torta, crocchetta grande", factor: 1, next: "c_base" },
+        { label: "Grande: porzione piena", hint: "arancino siciliano, pizza ripiena intera, fetta abbondante", factor: 2, next: "c_base" },
+      ],
+    },
+    c_base: {
+      domanda: "La base è farinosa o amidacea?",
+      nota: "Pasta, pane, farina, riso, patate: nelle preparazioni fuse è il caso quasi universale.",
+      opzioni: [
+        { label: "Sì", add: { energia: 1 }, next: "c_ricco" },
+        { label: "No", hint: "raro: sformato di sole verdure, frittata", next: "c_ricco" },
+      ],
+    },
+    c_ricco: {
+      domanda: "È dolce, fritto, o visibilmente ricco?",
+      nota: "Creme, formaggio, molto olio, glasse: la ricchezza si paga in Oro, qualunque sia l'origine.",
+      opzioni: [
+        { label: "Sì", add: { oro: 1 }, next: "c_ripieno" },
+        { label: "No, salato semplice", add: { oro: 0.5 }, next: "c_ripieno" },
+      ],
+    },
+    c_ripieno: {
+      domanda: "C'è un ripieno o condimento abbondante e visibile?",
+      nota: "Conta solo se è una quota rilevante del pezzo, non una guarnizione.",
+      opzioni: [
+        { label: "Verdure a foglia", hint: "misticanza, spinaci, scarola", add: { foglia: 1 }, next: "esito" },
+        { label: "Verdure colorate", hint: "zucca, peperoni, melanzane, pomodoro abbondante", add: { colore: 1 }, next: "esito" },
+        { label: "Legumi o tofu", add: { forza: 1 }, next: "esito" },
+        { label: "Pesce o uova", add: { forza: 1 }, next: "esito" },
+        { label: "No, o solo formaggio", hint: "il formaggio è già contato nella ricchezza Oro", next: "esito" },
+      ],
+    },
+  },
+};
+
+// Moltiplicatori del passo quantità (ramo alimento singolo).
+const CLASSIFICATORE_QTY = [
+  { label: "Metà", factor: 0.5 },
+  { label: "1 porzione", factor: 1 },
+  { label: "1 e mezza", factor: 1.5 },
+  { label: "Doppia", factor: 2 },
 ];
 
 // ===== logic/dates.js =====
@@ -1480,6 +1642,42 @@ function parseItemValue(valueStr) {
   }
 
   return { tasselli, flags };
+}
+
+// ===== logic/classificatore-engine.js =====
+// logic/classificatore-engine.js
+// Funzioni pure del classificatore guidato: scala per quantità,
+// arrotonda al mezzo e formatta l'esito nel formato del prontuario
+// (compatibile con parseItemValue). Nessun React.
+
+// Scala i tasselli accumulati per il fattore di quantità/dimensione.
+// Arrotonda al mezzo; ogni voce presente non scende mai sotto 0,5.
+function scaleTasselli(tasselli, factor) {
+  const out = {};
+  for (const [id, amount] of Object.entries(tasselli)) {
+    if (amount <= 0) continue;
+    const scaled = Math.round(amount * factor * 2) / 2;
+    out[id] = Math.max(0.5, scaled);
+  }
+  return out;
+}
+
+// Formatta { energia: 1, oro: 0.5 } in "1 Energia + 0,5 Oro",
+// lo stesso formato testuale del prontuario, parsabile da parseItemValue.
+function formatTasselli(tasselli) {
+  const labels = {
+    energia: "Energia", forza: "Forza", foglia: "Foglia",
+    colore: "Colore", frutto: "Frutto", oro: "Oro", granello: "Granello",
+  };
+  const order = ["energia", "forza", "foglia", "colore", "frutto", "oro", "granello"];
+  const parts = [];
+  for (const id of order) {
+    const v = tasselli[id];
+    if (!v) continue;
+    const num = String(v).replace(".", ",");
+    parts.push(`${num} ${labels[id]}`);
+  }
+  return parts.length ? parts.join(" + ") : "0 tasselli";
 }
 
 // ===== ui/SlidePanel.js =====
@@ -2843,6 +3041,236 @@ function GuidaPanel({ onClose }) {
 }
 
 
+// ===== panels/ClassificatorePanel.js =====
+// panels/ClassificatorePanel.js - classificatore guidato per alimenti fuori prontuario
+
+// ============================================================
+// CLASSIFICATORE PANEL — guided food classification wizard
+// ============================================================
+// Cammina l'albero CLASSIFICATORE (data/classificatore.js).
+// Accumula tasselli e fattore di dimensione lungo il percorso,
+// poi chiede la quantità (ramo alimento singolo) e mostra l'esito
+// nel formato del prontuario, con aggiunta diretta al giorno.
+
+function ClassificatorePanel({ onClose, onAddItem, addedLabel }) {
+  const initial = {
+    nodeId: CLASSIFICATORE.start,
+    acc: {},
+    factor: 1,
+    unit: null,
+    stage: "tree", // tree | qty | esito
+  };
+  const [state, setState] = useState(initial);
+  const [history, setHistory] = useState([]);
+  const [added, setAdded] = useState(false);
+
+  const pushAndGo = (nextState) => {
+    setHistory((prev) => [...prev, state]);
+    setState(nextState);
+    setAdded(false);
+  };
+
+  const handleOption = (opt) => {
+    const acc = { ...state.acc };
+    if (opt.add) {
+      for (const [id, v] of Object.entries(opt.add)) {
+        acc[id] = (acc[id] || 0) + v;
+      }
+    }
+    const next = {
+      nodeId: opt.next === "qty" || opt.next === "esito" ? state.nodeId : opt.next,
+      acc,
+      factor: opt.factor != null ? opt.factor : state.factor,
+      unit: opt.unit || state.unit,
+      stage: opt.next === "qty" ? "qty" : opt.next === "esito" ? "esito" : "tree",
+    };
+    pushAndGo(next);
+  };
+
+  const handleQty = (factor) => {
+    pushAndGo({ ...state, factor, stage: "esito" });
+  };
+
+  const goBack = () => {
+    if (history.length === 0) return;
+    setState(history[history.length - 1]);
+    setHistory((prev) => prev.slice(0, -1));
+    setAdded(false);
+  };
+
+  const restart = () => {
+    setState(initial);
+    setHistory([]);
+    setAdded(false);
+  };
+
+  const finale = scaleTasselli(state.acc, state.factor);
+  const finaleLabel = formatTasselli(finale);
+  const hasTasselli = Object.keys(finale).length > 0;
+
+  const handleAdd = () => {
+    if (!onAddItem || !hasTasselli) return;
+    onAddItem({ name: "Alimento classificato", value: finaleLabel });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1800);
+  };
+
+  const node = CLASSIFICATORE.nodes[state.nodeId];
+
+  const optionBtnStyle = {
+    width: "100%",
+    textAlign: "left",
+    background: "var(--bg-card)",
+    border: "1px solid rgba(138, 90, 44, 0.2)",
+    borderRadius: "12px",
+    padding: "12px 14px",
+    marginBottom: "8px",
+    cursor: "pointer",
+    color: "var(--ink)",
+    fontFamily: "var(--font-body)",
+  };
+
+  const navBtnStyle = {
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    color: "var(--ink-soft)",
+    fontSize: "12px",
+    fontFamily: "var(--font-body)",
+    padding: "6px 8px",
+    textDecoration: "underline",
+  };
+
+  return (
+    <SlidePanel
+      title="Classifichiamolo insieme"
+      subtitle="Qualche domanda visiva, nessuna etichetta da leggere."
+      onClose={onClose}
+    >
+      {/* Navigazione: indietro e ricomincia */}
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
+        <button onClick={goBack} style={{ ...navBtnStyle, visibility: history.length ? "visible" : "hidden" }}>
+          ← Indietro
+        </button>
+        <button onClick={restart} style={{ ...navBtnStyle, visibility: history.length ? "visible" : "hidden" }}>
+          Ricomincia
+        </button>
+      </div>
+
+      {state.stage === "tree" && (
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "17px",
+              color: "var(--ink-strong)",
+              marginBottom: node.nota ? "6px" : "14px",
+            }}
+          >
+            {node.domanda}
+          </div>
+          {node.nota && (
+            <div style={{ fontSize: "12px", color: "var(--ink-soft)", lineHeight: 1.5, marginBottom: "14px" }}>
+              {node.nota}
+            </div>
+          )}
+          {node.opzioni.map((opt, i) => (
+            <button key={i} onClick={() => handleOption(opt)} style={optionBtnStyle}>
+              <div style={{ fontSize: "14px", fontWeight: 600 }}>{opt.label}</div>
+              {opt.hint && (
+                <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginTop: "3px" }}>{opt.hint}</div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {state.stage === "qty" && (
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "17px",
+              color: "var(--ink-strong)",
+              marginBottom: "6px",
+            }}
+          >
+            Quanto ne hai mangiato?
+          </div>
+          {state.unit && (
+            <div style={{ fontSize: "12px", color: "var(--ink-soft)", lineHeight: 1.5, marginBottom: "14px" }}>
+              Riferimento per 1 porzione: {state.unit}.
+            </div>
+          )}
+          {CLASSIFICATORE_QTY.map((q, i) => (
+            <button key={i} onClick={() => handleQty(q.factor)} style={optionBtnStyle}>
+              <div style={{ fontSize: "14px", fontWeight: 600 }}>{q.label}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {state.stage === "esito" && (
+        <div>
+          <div
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "17px",
+              color: "var(--ink-strong)",
+              marginBottom: "10px",
+            }}
+          >
+            Ecco come conta
+          </div>
+          <div
+            style={{
+              background: "var(--bg-card)",
+              border: "1px solid rgba(138, 90, 44, 0.25)",
+              borderRadius: "12px",
+              padding: "16px",
+              textAlign: "center",
+              fontSize: "18px",
+              fontWeight: 700,
+              color: "var(--ink-strong)",
+              marginBottom: "12px",
+            }}
+          >
+            {finaleLabel}
+          </div>
+          {hasTasselli ? (
+            <button
+              onClick={handleAdd}
+              disabled={added}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "12px",
+                border: "none",
+                cursor: added ? "default" : "pointer",
+                background: added ? "rgba(90,122,60,0.85)" : "#8a5a2c",
+                color: "#fff",
+                fontSize: "14px",
+                fontWeight: 700,
+                fontFamily: "var(--font-body)",
+                marginBottom: "12px",
+              }}
+            >
+              {added ? `Aggiunto a ${addedLabel}` : `Aggiungi a ${addedLabel}`}
+            </button>
+          ) : (
+            <div style={{ fontSize: "12px", color: "var(--ink-soft)", textAlign: "center", marginBottom: "12px" }}>
+              Questo alimento non muove tasselli: nessuna aggiunta necessaria.
+            </div>
+          )}
+          <div style={{ fontSize: "12px", color: "var(--ink-soft)", lineHeight: 1.5, textAlign: "center" }}>
+            Nel dubbio tra due tasselli vicini, scegli e vai: il metodo regge l'approssimazione, è fatto per questo.
+          </div>
+        </div>
+      )}
+    </SlidePanel>
+  );
+}
+
 // ===== panels/ProntuarioPanel.js =====
 // panels/ProntuarioPanel.js - prontuario alimenti + aggiunta al giorno
 
@@ -2852,6 +3280,7 @@ function GuidaPanel({ onClose }) {
 
 function ProntuarioPanel({ onClose, onAddItem, addedLabel }) {
   const [query, setQuery] = useState("");
+  const [classificatoreOpen, setClassificatoreOpen] = useState(false);
   const [addedItems, setAddedItems] = useState({});
 
   // Le sezioni partono collassate a ogni apertura del prontuario.
@@ -2908,6 +3337,26 @@ function ProntuarioPanel({ onClose, onAddItem, addedLabel }) {
       subtitle="Cerca un alimento o sfoglia per categoria. Tap su una riga per vedere la classificazione."
       onClose={onClose}
     >
+      {/* Ingresso al classificatore guidato */}
+      <button
+        onClick={() => setClassificatoreOpen(true)}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          marginBottom: "12px",
+          borderRadius: "10px",
+          border: "1px dashed rgba(138, 90, 44, 0.4)",
+          background: "transparent",
+          cursor: "pointer",
+          color: "var(--ink)",
+          fontSize: "13px",
+          fontFamily: "var(--font-body)",
+          fontWeight: 600,
+        }}
+      >
+        Non lo trovi? Classifichiamolo insieme →
+      </button>
+
       {/* Search box */}
       <div
         style={{
@@ -2982,6 +3431,24 @@ function ProntuarioPanel({ onClose, onAddItem, addedLabel }) {
           <span style={{ fontSize: "11px" }}>
             Usa il principio dei 5 secondi: lista ingredienti corta = pieno valore nel tassello dominante, lista lunga = metà valore.
           </span>
+          <br />
+          <button
+            onClick={() => setClassificatoreOpen(true)}
+            style={{
+              marginTop: "12px",
+              padding: "9px 16px",
+              borderRadius: "10px",
+              border: "none",
+              background: "#8a5a2c",
+              color: "#fff",
+              cursor: "pointer",
+              fontSize: "13px",
+              fontWeight: 700,
+              fontFamily: "var(--font-body)",
+            }}
+          >
+            Classifichiamolo insieme
+          </button>
         </div>
       )}
 
@@ -3152,6 +3619,15 @@ function ProntuarioPanel({ onClose, onAddItem, addedLabel }) {
         </div>
         );
       })}
+
+      {/* Classificatore guidato, overlay sopra il prontuario */}
+      {classificatoreOpen && (
+        <ClassificatorePanel
+          onClose={() => setClassificatoreOpen(false)}
+          onAddItem={onAddItem}
+          addedLabel={addedLabel}
+        />
+      )}
     </SlidePanel>
   );
 }
