@@ -4,7 +4,7 @@
 // HISTORY PANEL (last 7 days as a small bar chart)
 // ============================================================
 
-function HistoryPanel({ daysData, onClose, onSelectDay, onImport }) {
+function HistoryPanel({ daysData, onClose, onSelectDay, onImport, isLogged }) {
   const last14Days = [];
   for (let i = 13; i >= 0; i--) {
     last14Days.push(daysAgoKey(i));
@@ -41,7 +41,12 @@ function HistoryPanel({ daysData, onClose, onSelectDay, onImport }) {
             return;
           }
           const giorni = validKeys.filter(k => k.startsWith("parti_day:")).length;
-          if (!window.confirm("Importare " + giorni + " giorni di dati?\n\nAttenzione: i dati attuali verranno sostituiti.")) return;
+
+          const msg = isLogged
+            ? "Importare " + giorni + " giorni di dati?\n\nI dati attuali del tuo account verranno sostituiti e sincronizzati su tutti i tuoi dispositivi."
+            : "Importare " + giorni + " giorni di dati?\n\nATTENZIONE: non hai effettuato l'accesso. Questi dati sostituiranno solo i dati salvati su questo dispositivo e NON saranno sincronizzati. Per sincronizzarli su più dispositivi, accedi prima di importare.";
+
+          if (!window.confirm(msg)) return;
 
           // Costruisce daysData e flagsData dal JSON
           const daysData  = {};
@@ -201,13 +206,15 @@ function HistoryPanel({ daysData, onClose, onSelectDay, onImport }) {
           <div style={{ display: "flex", gap: "5px" }}>
             <button
               onClick={() => {
+                // Esporta lo scope ATTIVO (daysData/flagsData riflettono account o anonimo).
+                // Il formato resta parti_day:/parti_flag: per compatibilità con l'import.
                 const data = {};
-                for (let i = 0; i < localStorage.length; i++) {
-                  const key = localStorage.key(i);
-                  if (key && (key.startsWith("parti_day:") || key.startsWith("parti_flag:"))) {
-                    data[key] = localStorage.getItem(key);
-                  }
-                }
+                Object.entries(daysData).forEach(([k, v]) => {
+                  data[`parti_day:${k}`] = JSON.stringify(v);
+                });
+                Object.entries(flagsData).forEach(([k, v]) => {
+                  data[`parti_flag:${k}`] = JSON.stringify(v);
+                });
                 const json = JSON.stringify(data, null, 2);
                 const blob = new Blob([json], { type: "application/json" });
                 const url = URL.createObjectURL(blob);

@@ -8,7 +8,7 @@
 // è stabile e sufficiente per le operazioni che usiamo.
 
 const SUPA_URL  = "https://ojhqieknxhsrxyvdowja.supabase.co";
-const SUPA_KEY  = "sb_publishable_W3axOEhDUPPdMZ1tKXtCug_l-35rcw4";
+const SUPA_KEY  = "sb_publishable_W3axOEhDUPPdMZ1tKXtCug_l-35rHWGXkfFnc_MwHco8";
 
 // ── Token in memoria (non in localStorage per sicurezza) ──────────────────
 let _accessToken  = null;
@@ -209,3 +209,70 @@ async function deleteDayFromSupabase(dateKey) {
     headers: _headers(),
   }).catch(() => {});
 }
+
+// ── Storage locale per scope ──────────────────────────────────────────────
+// Due spazi dati distinti che NON si mescolano mai:
+//   - anonimo:  parti_day:<date>            / parti_flag:<date>
+//   - account:  parti_acct:<uid>:day:<date> / parti_acct:<uid>:flag:<date>
+// Lo scope account è la cache locale dei dati remoti, per funzionamento offline.
+const partiStore = {
+
+  // Prefissi per uno scope. userId === null => scope anonimo.
+  _prefixes(userId) {
+    if (userId) {
+      return {
+        day:  `parti_acct:${userId}:day:`,
+        flag: `parti_acct:${userId}:flag:`,
+      };
+    }
+    return { day: "parti_day:", flag: "parti_flag:" };
+  },
+
+  // Legge { daysData, flagsData } dallo scope indicato.
+  load(userId) {
+    const { day, flag } = this._prefixes(userId);
+    const daysData  = {};
+    const flagsData = {};
+    Object.keys(localStorage).forEach((k) => {
+      if (k.startsWith(day)) {
+        try { daysData[k.slice(day.length)] = JSON.parse(localStorage.getItem(k)); } catch (e) {}
+      } else if (k.startsWith(flag)) {
+        try { flagsData[k.slice(flag.length)] = JSON.parse(localStorage.getItem(k)); } catch (e) {}
+      }
+    });
+    return { daysData, flagsData };
+  },
+
+  // Scrive un singolo giorno nello scope.
+  setDay(userId, dateKey, data) {
+    const { day } = this._prefixes(userId);
+    try { localStorage.setItem(`${day}${dateKey}`, JSON.stringify(data)); } catch (e) {}
+  },
+
+  // Scrive i flag di un giorno nello scope.
+  setFlag(userId, dateKey, data) {
+    const { flag } = this._prefixes(userId);
+    try { localStorage.setItem(`${flag}${dateKey}`, JSON.stringify(data)); } catch (e) {}
+  },
+
+  // Rimuove un giorno dallo scope.
+  removeDay(userId, dateKey) {
+    const { day } = this._prefixes(userId);
+    try { localStorage.removeItem(`${day}${dateKey}`); } catch (e) {}
+  },
+
+  // Svuota completamente uno scope (usato prima di un import).
+  clear(userId) {
+    const { day, flag } = this._prefixes(userId);
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith(day) || k.startsWith(flag))
+      .forEach((k) => localStorage.removeItem(k));
+  },
+
+  // Rimpiazza l'intero contenuto di uno scope con i dati passati.
+  replace(userId, daysData, flagsData) {
+    this.clear(userId);
+    Object.entries(daysData).forEach(([k, v])  => this.setDay(userId, k, v));
+    Object.entries(flagsData).forEach(([k, v]) => this.setFlag(userId, k, v));
+  },
+};

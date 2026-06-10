@@ -21,14 +21,20 @@ function App() {
   const [prontuarioOpen, setProntuarioOpen]   = useState(false);
   const [spesaOpen, setSpesaOpen]             = useState(false);
 
-  // ── Mount: ripristina sessione, poi carica dati ──────────────────────────
+  // ── Mount: ripristina sessione, poi carica dati dallo scope corretto ─────
   useEffect(() => {
     (async () => {
       try {
-        // Cleanup chiavi obsolete
-        const validPrefixes = ["parti_day:", "parti_flag:", "parti_auth"];
+        // Cleanup chiavi davvero obsolete: tutto ciò che inizia con "parti_"
+        // ma NON è uno scope valido (day/flag anonimo, acct, auth).
         Object.keys(localStorage)
-          .filter((k) => !validPrefixes.some((p) => k.startsWith(p)))
+          .filter((k) => k.startsWith("parti_"))
+          .filter((k) =>
+            !k.startsWith("parti_day:") &&
+            !k.startsWith("parti_flag:") &&
+            !k.startsWith("parti_acct:") &&
+            k !== "parti_auth"
+          )
           .forEach((k) => localStorage.removeItem(k));
 
         // Prova a ripristinare la sessione Supabase
@@ -36,91 +42,78 @@ function App() {
 
         if (restoredUser) {
           setUser(restoredUser);
-          // Carica da Supabase e sovrascrivi localStorage (fonte di verità remota)
+          const uid = supabaseAuth.getCurrentUserId();
+
+          // Carica da Supabase; se va a buon fine aggiorna la cache account
           const remote = await loadAllFromSupabase();
           if (remote) {
+            partiStore.replace(uid, remote.daysData, remote.flagsData);
             setDaysData(remote.daysData);
             setFlagsData(remote.flagsData);
-            // Sincronizza localStorage con i dati remoti
-            Object.entries(remote.daysData).forEach(([k, v]) => {
-              try { localStorage.setItem(`parti_day:${k}`, JSON.stringify(v)); } catch (e) {}
-            });
-            Object.entries(remote.flagsData).forEach(([k, v]) => {
-              try { localStorage.setItem(`parti_flag:${k}`, JSON.stringify(v)); } catch (e) {}
-            });
-            return;
+          } else {
+            // Offline: usa la cache locale dell'account
+            const cached = partiStore.load(uid);
+            setDaysData(cached.daysData);
+            setFlagsData(cached.flagsData);
           }
+          return;
         }
 
-        // Fallback: carica solo da localStorage (utente anonimo o Supabase non disponibile)
-        _loadFromLocalStorage();
+        // Nessuna sessione: scope anonimo
+        const anon = partiStore.load(null);
+        setDaysData(anon.daysData);
+        setFlagsData(anon.flagsData);
 
       } catch (e) {
         console.error("Load error:", e);
-        _loadFromLocalStorage();
+        const anon = partiStore.load(null);
+        setDaysData(anon.daysData);
+        setFlagsData(anon.flagsData);
       } finally {
         setLoading(false);
       }
     })();
-
-    // Listener auth: aggiorna user state se la sessione cambia
-    const unsub = supabaseAuth.onAuthStateChange((u) => setUser(u));
-    return unsub;
   }, []);
 
-  function _loadFromLocalStorage() {
-    const data = {};
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith("parti_day:"))
-      .forEach((key) => {
-        try { data[key.replace("parti_day:", "")] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
-      });
-    setDaysData(data);
-
-    const flagData = {};
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith("parti_flag:"))
-      .forEach((key) => {
-        try { flagData[key.replace("parti_flag:", "")] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
-      });
-    setFlagsData(flagData);
-  }
-
-  // ── Callback dopo login riuscito: carica dati remoti ────────────────────
+  // ── Login riuscito: passa allo scope account ─────────────────────────────
+  // I dati account SOSTITUISCONO la vista (non si fondono col locale anonimo).
+  // Lo scope anonimo resta intatto e riappare al logout.
   const handleLoginSuccess = async (loggedUser) => {
     setUser(loggedUser);
+    const uid = supabaseAuth.getCurrentUserId();
     const remote = await loadAllFromSupabase();
     if (remote) {
-      // Merge: remoto ha priorità, ma non cancella giorni locali assenti in remoto
-      setDaysData(prev => ({ ...prev, ...remote.daysData }));
-      setFlagsData(prev => ({ ...prev, ...remote.flagsData }));
+      partiStore.replace(uid, remote.daysData, remote.flagsData);
+      setDaysData(remote.daysData);
+      setFlagsData(remote.flagsData);
+    } else {
+      const cached = partiStore.load(uid);
+      setDaysData(cached.daysData);
+      setFlagsData(cached.flagsData);
     }
   };
 
-  // ── Import da JSON: scrive su localStorage + Supabase se loggato ────────
+  // ── Logout: torna allo scope anonimo ─────────────────────────────────────
+  const handleLogout = async () => {
+    await supabaseAuth.signOut();
+    setUser(null);
+    const anon = partiStore.load(null);
+    setDaysData(anon.daysData);
+    setFlagsData(anon.flagsData);
+    setCurrentDate(todayKey());
+  };
+
+  // ── Import da JSON ───────────────────────────────────────────────────────
+  // Loggato:    sovrascrive scope account + Supabase (sincronizzato).
+  // Anonimo:    sovrascrive solo scope anonimo (locale, non sincronizzato).
   const handleImport = async (importedDays, importedFlags) => {
-    // Pulisce localStorage dai dati parti_ esistenti
-    const toDelete = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith("parti_day:") || key.startsWith("parti_flag:"))) toDelete.push(key);
-    }
-    toDelete.forEach(k => localStorage.removeItem(k));
+    const uid = supabaseAuth.getCurrentUserId();   // null se anonimo
 
-    // Scrive i nuovi dati su localStorage
-    Object.entries(importedDays).forEach(([k, v]) => {
-      try { localStorage.setItem(`parti_day:${k}`, JSON.stringify(v)); } catch (e) {}
-    });
-    Object.entries(importedFlags).forEach(([k, v]) => {
-      try { localStorage.setItem(`parti_flag:${k}`, JSON.stringify(v)); } catch (e) {}
-    });
-
-    // Aggiorna lo stato React
+    partiStore.replace(uid, importedDays, importedFlags);
     setDaysData(importedDays);
     setFlagsData(importedFlags);
 
-    // Se loggato, carica tutto su Supabase
-    if (supabaseAuth.getCurrentUserId()) {
+    if (uid) {
       const uploads = [
         ...Object.entries(importedDays).map(([k, v])  => saveDayToSupabase(k, v)),
         ...Object.entries(importedFlags).map(([k, v]) => saveFlagToSupabase(k, v)),
@@ -131,43 +124,37 @@ function App() {
 
   // ── Persist a day's data ─────────────────────────────────────────────────
   const updateDay = (dateKey, tasselloId, newValue) => {
+    const uid    = supabaseAuth.getCurrentUserId();
     const newDay = { ...(daysData[dateKey] || {}), [tasselloId]: newValue };
     setDaysData((prev) => ({ ...prev, [dateKey]: newDay }));
-    try {
-      localStorage.setItem(`parti_day:${dateKey}`, JSON.stringify(newDay));
-    } catch (e) {
-      console.error("Save error:", e);
-    }
-    if (supabaseAuth.getCurrentUserId()) saveDayToSupabase(dateKey, newDay);
+    partiStore.setDay(uid, dateKey, newDay);
+    if (uid) saveDayToSupabase(dateKey, newDay);
   };
 
   const toggleFlag = (dateKey, flagId) => {
+    const uid         = supabaseAuth.getCurrentUserId();
     const dayFlags    = flagsData[dateKey] || {};
     const newDayFlags = { ...dayFlags, [flagId]: !dayFlags[flagId] };
     setFlagsData((prev) => ({ ...prev, [dateKey]: newDayFlags }));
-    try {
-      localStorage.setItem(`parti_flag:${dateKey}`, JSON.stringify(newDayFlags));
-    } catch (e) {
-      console.error("Save flag error:", e);
-    }
-    if (supabaseAuth.getCurrentUserId()) saveFlagToSupabase(dateKey, newDayFlags);
+    partiStore.setFlag(uid, dateKey, newDayFlags);
+    if (uid) saveFlagToSupabase(dateKey, newDayFlags);
   };
 
   const resetToday = () => {
     if (!confirm("Azzerare la giornata di " + dayLabel(currentDate) + "?")) return;
+    const uid = supabaseAuth.getCurrentUserId();
     setDaysData((prev) => {
       const next = { ...prev };
       delete next[currentDate];
       return next;
     });
-    try {
-      localStorage.removeItem(`parti_day:${currentDate}`);
-    } catch (e) {}
-    if (supabaseAuth.getCurrentUserId()) deleteDayFromSupabase(currentDate);
+    partiStore.removeDay(uid, currentDate);
+    if (uid) deleteDayFromSupabase(currentDate);
   };
 
   // ── Add a prontuario item's tasselli to the current date atomically ──────
   const handleAddProntuarioItem = (item) => {
+    const uid = supabaseAuth.getCurrentUserId();
     const { tasselli: itemTasselli, flags } = parseItemValue(item.value);
 
     const currentDay = daysData[currentDate] || {};
@@ -186,8 +173,8 @@ function App() {
 
     if (dayChanged) {
       setDaysData((prev) => ({ ...prev, [currentDate]: newDay }));
-      try { localStorage.setItem(`parti_day:${currentDate}`, JSON.stringify(newDay)); } catch (e) {}
-      if (supabaseAuth.getCurrentUserId()) saveDayToSupabase(currentDate, newDay);
+      partiStore.setDay(uid, currentDate, newDay);
+      if (uid) saveDayToSupabase(currentDate, newDay);
     }
 
     if (granelloIncrement > 0) {
@@ -321,7 +308,7 @@ function App() {
           <div style={{ display: "flex", gap: "5px" }}>
             {/* Pulsante sync/auth */}
             <button
-              onClick={() => user ? supabaseAuth.signOut() : setLoginOpen(true)}
+              onClick={() => user ? handleLogout() : setLoginOpen(true)}
               aria-label={user ? "Disconnetti" : "Sincronizza su più dispositivi"}
               title={user ? `Connesso come ${user.email}` : "Accedi per sincronizzare"}
               style={{
@@ -578,6 +565,7 @@ function App() {
           onClose={() => setHistoryOpen(false)}
           onSelectDay={setCurrentDate}
           onImport={handleImport}
+          isLogged={!!user}
         />
       )}
       {guidaOpen    && <GuidaPanel    onClose={() => setGuidaOpen(false)} />}
