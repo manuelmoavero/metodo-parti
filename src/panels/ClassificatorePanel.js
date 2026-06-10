@@ -19,10 +19,12 @@ function ClassificatorePanel({ onClose, onAddItem, addedLabel }) {
   const [state, setState] = useState(initial);
   const [history, setHistory] = useState([]);
   const [added, setAdded] = useState(false);
+  const [multiSelected, setMultiSelected] = useState([]);
 
   const pushAndGo = (nextState) => {
     setHistory((prev) => [...prev, state]);
     setState(nextState);
+    setMultiSelected([]);
     setAdded(false);
   };
 
@@ -47,16 +49,39 @@ function ClassificatorePanel({ onClose, onAddItem, addedLabel }) {
     pushAndGo({ ...state, factor, stage: "esito" });
   };
 
+  const toggleMulti = (i) => {
+    setMultiSelected((prev) =>
+      prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]
+    );
+  };
+
+  const confirmMulti = (node) => {
+    const adds = multiSelected.map((i) => node.opzioni[i].add).filter(Boolean);
+    const merged = mergeRipienoAdds(adds);
+    const acc = { ...state.acc };
+    for (const [id, v] of Object.entries(merged)) {
+      acc[id] = (acc[id] || 0) + v;
+    }
+    pushAndGo({
+      ...state,
+      acc,
+      stage: node.next === "qty" ? "qty" : node.next === "esito" ? "esito" : "tree",
+      nodeId: node.next === "qty" || node.next === "esito" ? state.nodeId : node.next,
+    });
+  };
+
   const goBack = () => {
     if (history.length === 0) return;
     setState(history[history.length - 1]);
     setHistory((prev) => prev.slice(0, -1));
+    setMultiSelected([]);
     setAdded(false);
   };
 
   const restart = () => {
     setState(initial);
     setHistory([]);
+    setMultiSelected([]);
     setAdded(false);
   };
 
@@ -130,14 +155,50 @@ function ClassificatorePanel({ onClose, onAddItem, addedLabel }) {
               {node.nota}
             </div>
           )}
-          {node.opzioni.map((opt, i) => (
-            <button key={i} onClick={() => handleOption(opt)} style={optionBtnStyle}>
-              <div style={{ fontSize: "14px", fontWeight: 600 }}>{opt.label}</div>
-              {opt.hint && (
-                <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginTop: "3px" }}>{opt.hint}</div>
-              )}
+          {node.opzioni.map((opt, i) => {
+            const isMulti = !!node.multi;
+            const isSelected = isMulti && multiSelected.includes(i);
+            return (
+              <button
+                key={i}
+                onClick={() => (isMulti ? toggleMulti(i) : handleOption(opt))}
+                style={{
+                  ...optionBtnStyle,
+                  border: isSelected
+                    ? "2px solid #8a5a2c"
+                    : optionBtnStyle.border,
+                  background: isSelected ? "rgba(138, 90, 44, 0.08)" : optionBtnStyle.background,
+                }}
+              >
+                <div style={{ fontSize: "14px", fontWeight: 600 }}>
+                  {isMulti ? (isSelected ? "✓ " : "") : ""}{opt.label}
+                </div>
+                {opt.hint && (
+                  <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginTop: "3px" }}>{opt.hint}</div>
+                )}
+              </button>
+            );
+          })}
+          {node.multi && (
+            <button
+              onClick={() => confirmMulti(node)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "12px",
+                border: "none",
+                cursor: "pointer",
+                background: "#8a5a2c",
+                color: "#fff",
+                fontSize: "14px",
+                fontWeight: 700,
+                fontFamily: "var(--font-body)",
+                marginTop: "4px",
+              }}
+            >
+              {multiSelected.length === 0 ? "Nessun ripieno rilevante, avanti" : "Conferma"}
             </button>
-          ))}
+          )}
         </div>
       )}
 

@@ -1135,16 +1135,17 @@ const CLASSIFICATORE = {
       ],
     },
     c_ripieno: {
-      domanda: "C'è un ripieno o condimento abbondante e visibile?",
-      nota: "Conta solo se è una quota rilevante del pezzo, non una guarnizione.",
+      domanda: "Cosa c'è nel ripieno o nel condimento?",
+      nota: "Seleziona tutto quello che è presente in quota visibile, non come guarnizione. Un solo componente vale pieno; da due in su si dividono lo spazio e valgono metà ciascuno. Il formaggio non si seleziona: è già contato nella ricchezza Oro.",
+      multi: true,
       opzioni: [
-        { label: "Patate o altro amido", hint: "frittata di patate, torta di riso", add: { energia: 1 }, next: "esito" },
-        { label: "Verdure a foglia", hint: "misticanza, spinaci, scarola", add: { foglia: 1 }, next: "esito" },
-        { label: "Verdure colorate", hint: "zucca, peperoni, melanzane, pomodoro abbondante", add: { colore: 1 }, next: "esito" },
-        { label: "Legumi o tofu", add: { forza: 1 }, next: "esito" },
-        { label: "Pesce o uova", add: { forza: 1 }, next: "esito" },
-        { label: "No, o solo formaggio", hint: "il formaggio è già contato nella ricchezza Oro", next: "esito" },
+        { label: "Patate o altro amido", hint: "frittata di patate, torta di riso", add: { energia: 1 } },
+        { label: "Verdure a foglia", hint: "misticanza, spinaci, scarola", add: { foglia: 1 } },
+        { label: "Verdure colorate", hint: "zucca, peperoni, melanzane, pomodoro abbondante", add: { colore: 1 } },
+        { label: "Legumi o tofu", hint: "anche creme e hummus da collante", add: { forza: 1 } },
+        { label: "Pesce o uova", add: { forza: 1 } },
       ],
+      next: "esito",
     },
   },
 };
@@ -1651,6 +1652,20 @@ function parseItemValue(valueStr) {
 // Funzioni pure del classificatore guidato: scala per quantità,
 // arrotonda al mezzo e formatta l'esito nel formato del prontuario
 // (compatibile con parseItemValue). Nessun React.
+
+// Combina gli add di un nodo a scelta multipla (ripieni).
+// Un solo componente vale pieno; da due in su si dividono lo spazio:
+// ogni add viene dimezzato. Tasselli uguali si sommano.
+function mergeRipienoAdds(adds) {
+  const share = adds.length >= 2 ? 0.5 : 1;
+  const out = {};
+  for (const add of adds) {
+    for (const [id, v] of Object.entries(add)) {
+      out[id] = (out[id] || 0) + v * share;
+    }
+  }
+  return out;
+}
 
 // Scala i tasselli accumulati per il fattore di quantità/dimensione.
 // Arrotonda al mezzo; ogni voce presente non scende mai sotto 0,5.
@@ -3065,10 +3080,12 @@ function ClassificatorePanel({ onClose, onAddItem, addedLabel }) {
   const [state, setState] = useState(initial);
   const [history, setHistory] = useState([]);
   const [added, setAdded] = useState(false);
+  const [multiSelected, setMultiSelected] = useState([]);
 
   const pushAndGo = (nextState) => {
     setHistory((prev) => [...prev, state]);
     setState(nextState);
+    setMultiSelected([]);
     setAdded(false);
   };
 
@@ -3093,16 +3110,39 @@ function ClassificatorePanel({ onClose, onAddItem, addedLabel }) {
     pushAndGo({ ...state, factor, stage: "esito" });
   };
 
+  const toggleMulti = (i) => {
+    setMultiSelected((prev) =>
+      prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]
+    );
+  };
+
+  const confirmMulti = (node) => {
+    const adds = multiSelected.map((i) => node.opzioni[i].add).filter(Boolean);
+    const merged = mergeRipienoAdds(adds);
+    const acc = { ...state.acc };
+    for (const [id, v] of Object.entries(merged)) {
+      acc[id] = (acc[id] || 0) + v;
+    }
+    pushAndGo({
+      ...state,
+      acc,
+      stage: node.next === "qty" ? "qty" : node.next === "esito" ? "esito" : "tree",
+      nodeId: node.next === "qty" || node.next === "esito" ? state.nodeId : node.next,
+    });
+  };
+
   const goBack = () => {
     if (history.length === 0) return;
     setState(history[history.length - 1]);
     setHistory((prev) => prev.slice(0, -1));
+    setMultiSelected([]);
     setAdded(false);
   };
 
   const restart = () => {
     setState(initial);
     setHistory([]);
+    setMultiSelected([]);
     setAdded(false);
   };
 
@@ -3176,14 +3216,50 @@ function ClassificatorePanel({ onClose, onAddItem, addedLabel }) {
               {node.nota}
             </div>
           )}
-          {node.opzioni.map((opt, i) => (
-            <button key={i} onClick={() => handleOption(opt)} style={optionBtnStyle}>
-              <div style={{ fontSize: "14px", fontWeight: 600 }}>{opt.label}</div>
-              {opt.hint && (
-                <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginTop: "3px" }}>{opt.hint}</div>
-              )}
+          {node.opzioni.map((opt, i) => {
+            const isMulti = !!node.multi;
+            const isSelected = isMulti && multiSelected.includes(i);
+            return (
+              <button
+                key={i}
+                onClick={() => (isMulti ? toggleMulti(i) : handleOption(opt))}
+                style={{
+                  ...optionBtnStyle,
+                  border: isSelected
+                    ? "2px solid #8a5a2c"
+                    : optionBtnStyle.border,
+                  background: isSelected ? "rgba(138, 90, 44, 0.08)" : optionBtnStyle.background,
+                }}
+              >
+                <div style={{ fontSize: "14px", fontWeight: 600 }}>
+                  {isMulti ? (isSelected ? "✓ " : "") : ""}{opt.label}
+                </div>
+                {opt.hint && (
+                  <div style={{ fontSize: "11px", color: "var(--ink-soft)", marginTop: "3px" }}>{opt.hint}</div>
+                )}
+              </button>
+            );
+          })}
+          {node.multi && (
+            <button
+              onClick={() => confirmMulti(node)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "12px",
+                border: "none",
+                cursor: "pointer",
+                background: "#8a5a2c",
+                color: "#fff",
+                fontSize: "14px",
+                fontWeight: 700,
+                fontFamily: "var(--font-body)",
+                marginTop: "4px",
+              }}
+            >
+              {multiSelected.length === 0 ? "Nessun ripieno rilevante, avanti" : "Conferma"}
             </button>
-          ))}
+          )}
         </div>
       )}
 

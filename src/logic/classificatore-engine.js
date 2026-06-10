@@ -3,6 +3,20 @@
 // arrotonda al mezzo e formatta l'esito nel formato del prontuario
 // (compatibile con parseItemValue). Nessun React.
 
+// Combina gli add di un nodo a scelta multipla (ripieni).
+// Un solo componente vale pieno; da due in su si dividono lo spazio:
+// ogni add viene dimezzato. Tasselli uguali si sommano.
+function mergeRipienoAdds(adds) {
+  const share = adds.length >= 2 ? 0.5 : 1;
+  const out = {};
+  for (const add of adds) {
+    for (const [id, v] of Object.entries(add)) {
+      out[id] = (out[id] || 0) + v * share;
+    }
+  }
+  return out;
+}
+
 // Scala i tasselli accumulati per il fattore di quantità/dimensione.
 // Arrotonda al mezzo; ogni voce presente non scende mai sotto 0,5.
 function scaleTasselli(tasselli, factor) {
