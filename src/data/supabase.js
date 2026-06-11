@@ -70,7 +70,8 @@ const supabaseAuth = {
     _clearSession();
   },
 
-  // Recupera la sessione salvata (chiamato al mount di App)
+  // Recupera la sessione salvata (chiamato al mount di App).
+  // Se l'access token è scaduto prova a rinnovarlo col refresh token.
   async restoreSession() {
     const stored = localStorage.getItem("parti_auth");
     if (!stored) return null;
@@ -78,11 +79,30 @@ const supabaseAuth = {
       const { accessToken, refreshToken } = JSON.parse(stored);
       _accessToken  = accessToken;
       _refreshToken = refreshToken;
-      // Verifica che il token sia ancora valido
+
+      // Prova con il token attuale
       const user = await supabaseAuth.getUser();
       if (user) {
         _notifyListeners(user);
         return user;
+      }
+
+      // Token scaduto: prova a rinnovarlo col refresh token
+      if (_refreshToken) {
+        const res = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method: "POST",
+          headers: _headers(),
+          body: JSON.stringify({ refresh_token: _refreshToken }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          _setSession(data); // sovrascrive localStorage con i nuovi token
+          const refreshedUser = await supabaseAuth.getUser();
+          if (refreshedUser) {
+            _notifyListeners(refreshedUser);
+            return refreshedUser;
+          }
+        }
       }
     } catch (e) {}
     _clearSession();
