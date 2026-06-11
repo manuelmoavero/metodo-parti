@@ -1010,6 +1010,24 @@ const SPESA = [
     emoji: "📦",
     testo: "Questi durano mesi e non devi ricomprarli ogni settimana:\n\nLegumi secchi: lenticchie, ceci, fagioli in pacco da 500g.\nCereali: avena, quinoa, riso integrale.\nConserve: pelati, passata, ceci/fagioli in scatola di riserva.\nSemi: lino (macinato e conservato in frigo), chia, zucca, girasole.\nFrutta secca: noci, mandorle.\nTahin: vasetto da 250-300g.\nOlio EVO: almeno una bottiglia di scorta.\nAlghe: nori in fogli, spirulina in polvere.\nAcqua calcica: se la bevi, prendila con Ca ≥250 mg/L.",
   },
+  {
+    titolo: "Esempio: giornata feriale",
+    colore: "#5a7a3c",
+    emoji: "🍽️",
+    testo: "Descrive una giornata possibile, non un piano da seguire: serve a vedere come i tasselli si distribuiscono nei pasti reali.\n\nColazione: 1 fetta di pane con burro di nocciole o di arachidi, banana a rondelle e un goccio di sciroppo d'acero, più un bicchiere di latte di soia e uno yogurt di soia. Conta: 1 Energia + 1 Granello + 1 Frutto + 1 Forza (le due fonti complementari da 0,5 si sommano). Il goccio di sciroppo (un cucchiaino) si arrotonda a zero.\n\nPranzo: piatto unico di farro e ceci con verdure colorate saltate e un cucchiaio d'olio. Conta: 1 Energia + 1 Forza + 1 Colore + 0,5 Oro.\n\nCena: pane, insalata abbondante (qui si abbonda: lo sforo è libero), una verdura colorata, hummus o lupini come tocco proteico, olio a crudo. Conta: 1 Energia + 1,5 Foglia + 1 Colore + 0,5 Forza + 1 Oro.\n\nSpuntino: un frutto. Conta: 1 Frutto.\n\nTotali: Energia 3 (al tetto), Forza 2,5, Foglia 1,5 (e più ne metti meglio è), Colore 2, Frutto 2, Oro 1,5, Granello 1 cucchiaio. Giornata chiusa senza calcoli.",
+  },
+  {
+    titolo: "Esempio: giornata con pranzo fuori",
+    colore: "#c97a4d",
+    emoji: "🍴",
+    testo: "Il pranzo fuori casa (ristorante, parenti) non si pianifica: si valuta con la regola dei quarti o col classificatore, e la cena compensa.\n\nColazione: come la giornata feriale (1 Energia + 1 Granello + 1 Frutto + 1 Forza).\n\nPranzo fuori, esempio reale: una fetta di torta rustica con verdure e tofu vale circa 1 Energia + 1 Oro + 0,5 Foglia + 0,5 Colore + 0,5 Forza. Se c'è anche un dolce piccolo, aggiungi 0,5 Energia + 0,5 Oro. Non serve precisione al grammo: serve una stima onesta in 10 secondi.\n\nCena che compensa: verdure in abbondanza (1 Foglia + 1 Colore), una Forza densa (legumi o tofu, 1 Forza), poco o niente pane se il pranzo era ricco di Energia, e Oro fermo: il pranzo fuori ne porta sempre più del previsto.\n\nSpuntino: un frutto.\n\nIl principio: la giornata si bilancia sull'arco delle 24 ore, e se sfori c'è la finestra di compensazione sui 3 giorni. Un pranzo fuori non rompe niente.",
+  },
+  {
+    titolo: "Esempio: cena pizza e birra",
+    colore: "#b03832",
+    emoji: "🍕",
+    testo: "La serata pizzeria è la classica giornata che sfora: l'esempio serve a mostrare che si gestisce, non si evita. La regola è alleggerire il resto della giornata, non rinunciare alla pizza.\n\nColazione e pranzo leggeri: punta su Foglia, Colore, Frutto e una Forza densa, tenendo Energia e Oro bassi per lasciare spazio alla sera. Esempio: colazione con yogurt di soia e frutto (0,5 Forza + 1 Frutto), pranzo con insalatona di legumi, verdure colorate e poco olio (1 Forza + 1,5 Foglia + 1 Colore + 0,5 Oro). A metà giornata: 1 Energia + 2,5 Forza + 1,5 Foglia + 1 Colore + 1 Frutto + 0,5 Oro.\n\nCena in pizzeria: 1 pizza tonda alla parmigiana = 2 Energia (base intera, doppia delle 2 fette) + 1 Colore (le melanzane) + 2 Oro (mozzarella, parmigiano, olio di frittura delle melanzane: è una pizza ricca). 1 birra piccola (0,2L) = 0,5 Oro.\n\nTotali della giornata: Energia 3 (al tetto, giusto), Forza 2,5, Foglia 1,5, Colore 2, Frutto 1, Oro 3.\n\nLettura onesta: l'Oro a 3 sfora il target di 2, ma resta dentro il softMax di 5 e dentro la finestra di compensazione dei 3 giorni. Frutto a 1 è sotto: recuperabile l'indomani. Tutto il resto è in linea. Una pizza con birra non è uno strappo se la giornata le ha fatto spazio: è il metodo che funziona come deve.",
+  },
 ];
 
 // ===== data/classificatore.js =====
